@@ -6,8 +6,9 @@ import (
 	"log"
 	"os"
 
-	"tech-db-forum/restapi"
-	"tech-db-forum/restapi/operations"
+	"github.com/crueltycute/tech-db-forum/restapi"
+	"github.com/crueltycute/tech-db-forum/restapi/operations"
+
 
 	loads "github.com/go-openapi/loads"
 	flags "github.com/jessevdk/go-flags"

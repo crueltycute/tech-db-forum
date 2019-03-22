@@ -15,7 +15,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	models "tech-db-forum/models"
+	models "github.com/crueltycute/tech-db-forum/models"
 )
 
 // NewThreadUpdateParams creates a new ThreadUpdateParams object

@@ -15,7 +15,7 @@ import (
 
 	strfmt "github.com/go-openapi/strfmt"
 
-	models "tech-db-forum/models"
+	models "github.com/crueltycute/tech-db-forum/models"
 )
 
 // NewPostsCreateParams creates a new PostsCreateParams object

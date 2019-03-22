@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	models "tech-db-forum/models"
+	models "github.com/crueltycute/tech-db-forum/models"
 )
 
 // PostUpdateOKCode is the HTTP code returned for type PostUpdateOK

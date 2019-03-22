@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	models "tech-db-forum/models"
+	models "github.com/crueltycute/tech-db-forum/models"
 )
 
 // NewForumCreateParams creates a new ForumCreateParams object

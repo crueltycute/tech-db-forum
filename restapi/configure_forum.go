@@ -4,13 +4,17 @@ package restapi
 
 import (
 	"crypto/tls"
+	"database/sql"
 	"net/http"
 
-	errors "github.com/go-openapi/errors"
-	runtime "github.com/go-openapi/runtime"
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/crueltycute/tech-db-forum/modules/service"
+	"github.com/crueltycute/tech-db-forum/restapi/operations"
 
-	"tech-db-forum/restapi/operations"
+	"github.com/go-openapi/errors"
+	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/runtime/middleware"
+
+	_ "github.com/lib/pq"
 )
 
 //go:generate swagger generate server --target ../../tech-db-forum --name Forum --spec ../swagger.yml
@@ -34,6 +38,13 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 	api.BinConsumer = runtime.ByteStreamConsumer()
 
 	api.JSONProducer = runtime.JSONProducer()
+
+	conninfo := "user=nadezda dbname=postgres host=0.0.0.0 sslmode=disable"
+
+	db, err := sql.Open("postgres", conninfo)
+	if err != nil {
+		panic(err)
+	}
 
 	api.ClearHandler = operations.ClearHandlerFunc(func(params operations.ClearParams) middleware.Responder {
 		return middleware.NotImplemented("operation .Clear has not yet been implemented")
@@ -78,13 +89,13 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 		return middleware.NotImplemented("operation .ThreadVote has not yet been implemented")
 	})
 	api.UserCreateHandler = operations.UserCreateHandlerFunc(func(params operations.UserCreateParams) middleware.Responder {
-		return middleware.NotImplemented("operation .UserCreate has not yet been implemented")
+		return service.UsersCreate(db, params)
 	})
 	api.UserGetOneHandler = operations.UserGetOneHandlerFunc(func(params operations.UserGetOneParams) middleware.Responder {
-		return middleware.NotImplemented("operation .UserGetOne has not yet been implemented")
+		return service.GetUserByNick(db, params)
 	})
 	api.UserUpdateHandler = operations.UserUpdateHandlerFunc(func(params operations.UserUpdateParams) middleware.Responder {
-		return middleware.NotImplemented("operation .UserUpdate has not yet been implemented")
+		return service.UsersUpdate(db, params)
 	})
 
 	api.ServerShutdown = func() {}
