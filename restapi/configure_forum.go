@@ -50,10 +50,10 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 		return middleware.NotImplemented("operation .Clear has not yet been implemented")
 	})
 	api.ForumCreateHandler = operations.ForumCreateHandlerFunc(func(params operations.ForumCreateParams) middleware.Responder {
-		return middleware.NotImplemented("operation .ForumCreate has not yet been implemented")
+		return service.ForumCreate(db, params)
 	})
 	api.ForumGetOneHandler = operations.ForumGetOneHandlerFunc(func(params operations.ForumGetOneParams) middleware.Responder {
-		return middleware.NotImplemented("operation .ForumGetOne has not yet been implemented")
+		return service.GetForumBySlug(db, params)
 	})
 	api.ForumGetThreadsHandler = operations.ForumGetThreadsHandlerFunc(func(params operations.ForumGetThreadsParams) middleware.Responder {
 		return middleware.NotImplemented("operation .ForumGetThreads has not yet been implemented")

@@ -21,8 +21,8 @@ const getUserByNick = `
 	FROM Users WHERE nickname = $1`
 
 const updateUser = `
-	UPDATE Users SET fullname = COALESCE($1, fullname), 
-	email = COALESCE($2, email), about = COALESCE($3, about)
+	UPDATE Users SET fullname = COALESCE(NULLIF($1, ''), fullname), 
+	email = COALESCE(NULLIF($2, ''), email), about = COALESCE(NULLIF($3, ''), about)
 	WHERE nickname = $4`
 
 
@@ -75,27 +75,25 @@ func GetUserByNick(db *sql.DB, params operations.UserGetOneParams) middleware.Re
 }
 
 func UsersUpdate(db *sql.DB, params operations.UserUpdateParams) middleware.Responder {
-	var userToUpdate *models.User
-
-	userToUpdate.Fullname = params.Profile.Fullname
-	userToUpdate.Email = params.Profile.Email
-	userToUpdate.About = params.Profile.About
-
-	userToUpdate.Nickname = params.Nickname
-
-	res, err := db.Exec(updateUser, &userToUpdate.Fullname, &userToUpdate.Email, &userToUpdate.About, &userToUpdate.Nickname)
+	_, err := db.Exec(updateUser, &params.Profile.Fullname,
+						&params.Profile.Email, &params.Profile.About,
+						&params.Nickname)
 
 	if err != nil {
-		panic(err)
-	}
-
-	if rows, _ := res.RowsAffected(); rows == 0 {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			return operations.NewUserUpdateConflict().WithPayload(&models.Error{Message: err.Error()})
+			return operations.NewUserUpdateConflict().WithPayload(&models.Error{"cannot update user"})
 		}
-
 		return operations.NewUserUpdateNotFound().WithPayload(&models.Error{ Message: "user not found" })
 	}
 
-	return operations.NewUserUpdateOK().WithPayload(userToUpdate)
+	rows, _ := db.Query(getUserByNick, params.Nickname)
+	defer rows.Close()
+
+	if rows.Next() {
+		user := &models.User{}
+		rows.Scan(&user.Nickname, &user.Fullname, &user.Email, &user.About)
+		return operations.NewUserUpdateOK().WithPayload(user)
+	}
+
+	return operations.NewUserUpdateNotFound().WithPayload(&models.Error{ Message: "updated user not found" })
 }

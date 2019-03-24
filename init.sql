@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS Users
     about TEXT
 );
 
--- CREATE UNIQUE INDEX IF NOT EXISTS index_users_email ON Users(email);
-
 CREATE TABLE IF NOT EXISTS Forum
 (
     slug CITEXT NOT NULL PRIMARY KEY,
@@ -30,6 +28,7 @@ CREATE TABLE IF NOT EXISTS Thread
     message TEXT NOT NULL,
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
 
 CREATE TABLE IF NOT EXISTS Post
 (
