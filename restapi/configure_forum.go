@@ -56,7 +56,7 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 		return service.GetForumBySlug(db, params)
 	})
 	api.ForumGetThreadsHandler = operations.ForumGetThreadsHandlerFunc(func(params operations.ForumGetThreadsParams) middleware.Responder {
-		return middleware.NotImplemented("operation .ForumGetThreads has not yet been implemented")
+		return service.ForumGetThreads(db, params)
 	})
 	api.ForumGetUsersHandler = operations.ForumGetUsersHandlerFunc(func(params operations.ForumGetUsersParams) middleware.Responder {
 		return middleware.NotImplemented("operation .ForumGetUsers has not yet been implemented")
@@ -74,7 +74,7 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 		return middleware.NotImplemented("operation .Status has not yet been implemented")
 	})
 	api.ThreadCreateHandler = operations.ThreadCreateHandlerFunc(func(params operations.ThreadCreateParams) middleware.Responder {
-		return middleware.NotImplemented("operation .ThreadCreate has not yet been implemented")
+		return service.ThreadCreate(db, params)
 	})
 	api.ThreadGetOneHandler = operations.ThreadGetOneHandlerFunc(func(params operations.ThreadGetOneParams) middleware.Responder {
 		return middleware.NotImplemented("operation .ThreadGetOne has not yet been implemented")

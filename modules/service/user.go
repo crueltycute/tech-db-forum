@@ -59,6 +59,7 @@ func UsersCreate(db *sql.DB, params operations.UserCreateParams) middleware.Resp
 	return operations.NewUserCreateCreated().WithPayload(createdUser)
 }
 
+
 func GetUserByNick(db *sql.DB, params operations.UserGetOneParams) middleware.Responder {
 	nickname := params.Nickname
 
@@ -73,6 +74,7 @@ func GetUserByNick(db *sql.DB, params operations.UserGetOneParams) middleware.Re
 
 	return operations.NewUserGetOneNotFound().WithPayload(&models.Error{ Message: "user not found" })
 }
+
 
 func UsersUpdate(db *sql.DB, params operations.UserUpdateParams) middleware.Responder {
 	_, err := db.Exec(updateUser, &params.Profile.Fullname,
