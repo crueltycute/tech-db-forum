@@ -12,14 +12,6 @@ CREATE UNIQUE INDEX email_unique_idx on Users (email);
 
 
 
-CREATE TABLE ForumUser (
-	    slug CITEXT REFERENCES Forum(slug),
-	    nickname CITEXT COLLATE "POSIX" REFERENCES Users(nickname),
-	    CONSTRAINT unique_slug_nickname UNIQUE (slug, nickname)
-	);
-
-
-
 CREATE TABLE IF NOT EXISTS Forum
 (
     slug CITEXT NOT NULL PRIMARY KEY,
@@ -30,6 +22,14 @@ CREATE TABLE IF NOT EXISTS Forum
 );
 
 CREATE INDEX forum_slug_hash_idx on Forum USING hash (slug);
+
+
+
+CREATE TABLE ForumUser (
+	    slug CITEXT REFERENCES Forum(slug),
+	    nickname CITEXT COLLATE "POSIX" REFERENCES Users(nickname),
+	    CONSTRAINT unique_slug_nickname UNIQUE (slug, nickname)
+	);
 
 
 
@@ -57,16 +57,16 @@ CREATE OR REPLACE FUNCTION updatethreadcount() RETURNS TRIGGER AS $body$
 	CREATE TRIGGER update_thread_count_trigger AFTER INSERT ON Thread
 	FOR EACH ROW EXECUTE PROCEDURE updatethreadcount();
 
-	CREATE OR REPLACE FUNCTION insertforumforumer() RETURNS TRIGGER AS $body$
+	CREATE OR REPLACE FUNCTION insertforumuser() RETURNS TRIGGER AS $body$
 	    BEGIN
-	        INSERT INTO ForumForumer(slug, nickname) VALUES(NEW.forum, NEW.author)
+	        INSERT INTO ForumUser(slug, nickname) VALUES(NEW.forum, NEW.author)
 	        ON CONFLICT DO NOTHING;
 	        RETURN NEW;
 	    END;
 	$body$ LANGUAGE plpgsql;
 
-	CREATE TRIGGER insert_forum_forumer_trigger AFTER INSERT ON Thread
-	FOR EACH ROW EXECUTE PROCEDURE insertforumforumer();
+	CREATE TRIGGER insert_forum_user_trigger AFTER INSERT ON Thread
+	FOR EACH ROW EXECUTE PROCEDURE insertforumuser();
 
 
 
@@ -117,16 +117,16 @@ CREATE OR REPLACE FUNCTION setforum() RETURNS TRIGGER AS $body$
 	CREATE TRIGGER update_post_count_trigger AFTER INSERT ON Post
 	FOR EACH ROW EXECUTE PROCEDURE updatepostcount();
 
-	CREATE OR REPLACE FUNCTION insertforumforumer() RETURNS TRIGGER AS $body$
+	CREATE OR REPLACE FUNCTION insertforumuser() RETURNS TRIGGER AS $body$
 	    BEGIN
-	        INSERT INTO ForumForumer(slug, nickname) VALUES(NEW.forum, NEW.author)
+	        INSERT INTO ForumUser(slug, nickname) VALUES(NEW.forum, NEW.author)
 	        ON CONFLICT DO NOTHING;
 	        RETURN NEW;
 	    END;
 	$body$ LANGUAGE plpgsql;
 
-	CREATE TRIGGER insert_forum_forumer_trigger AFTER INSERT ON Post
-	FOR EACH ROW EXECUTE PROCEDURE insertforumforumer();
+	CREATE TRIGGER insert_forum_user_trigger AFTER INSERT ON Post
+	FOR EACH ROW EXECUTE PROCEDURE insertforumuser();
 
 	CREATE OR REPLACE FUNCTION updateeditedcolumn() RETURNS TRIGGER AS $body$
 	    BEGIN

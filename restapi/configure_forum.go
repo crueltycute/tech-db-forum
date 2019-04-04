@@ -39,7 +39,8 @@ func configureAPI(api *operations.ForumAPI) http.Handler {
 
 	api.JSONProducer = runtime.JSONProducer()
 
-	conninfo := "user=nadezda dbname=postgres host=0.0.0.0 sslmode=disable"
+	//conninfo := "user=docker dbname=postgres host=0.0.0.0 sslmode=disable"
+	conninfo := "postgres://docker:docker@localhost/docker"
 
 	db, err := sql.Open("postgres", conninfo)
 	if err != nil {
