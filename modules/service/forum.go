@@ -9,43 +9,35 @@ import (
 	"strings"
 )
 
-const insertForum = `
-	INSERT INTO Forum (slug, forumUser, title) 
-	VALUES ($1, $2, $3)`
-
-const getForumBySlug = `
-	SELECT slug, forumUser, title
-	FROM Forum WHERE slug = $1`
-
-const getOneForumBySlug = `
-	SELECT slug, forumUser, title, posts, threads
-	FROM Forum WHERE slug = $1`
-
-const getUserNickname = `
-	SELECT nickname FROM Users WHERE nickname = $1`
-
-
 func ForumCreate(db *sql.DB, params operations.ForumCreateParams) middleware.Responder {
 	var usersNickname string
-	err := db.QueryRow(getUserNickname, params.Forum.User).Scan(&usersNickname)
+	err := db.QueryRow(queryGetUserNickByNick, params.Forum.User).Scan(&usersNickname)
 
 	if err != nil {
-		return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum creator not found"})
+		if err == sql.ErrNoRows {
+			return operations.NewForumCreateNotFound().WithPayload(&models.Error{ Message: "forum author not found" })
+		}
+		panic(err)
 	}
 
-	_, err = db.Exec(insertForum, &params.Forum.Slug, &usersNickname, &params.Forum.Title)
+	_, err = db.Exec(queryAddForum, &params.Forum.Slug, &usersNickname, &params.Forum.Title)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			existingForum := &models.Forum{}
-			db.QueryRow(getForumBySlug, &params.Forum.Slug).Scan(&existingForum.Slug, &existingForum.User, &existingForum.Title)
+			err := db.QueryRow(queryGetForumBySlug, &params.Forum.Slug).Scan(&existingForum.Slug, &existingForum.User, &existingForum.Title)
+
+			if err != nil {
+				panic(err)
+			}
+
 			return operations.NewForumCreateConflict().WithPayload(existingForum)
 		}
-		return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum creator not found"})
+		return operations.NewForumCreateNotFound().WithPayload(&models.Error{ Message: "forum author not found" })
 	}
 
 	createdForum := &models.Forum{}
-	err = db.QueryRow(getForumBySlug, &params.Forum.Slug).Scan(&createdForum.Slug, &createdForum.User, &createdForum.Title)
+	err = db.QueryRow(queryGetForumBySlug, &params.Forum.Slug).Scan(&createdForum.Slug, &createdForum.User, &createdForum.Title)
 
 	if err != nil {
 		panic(err)
@@ -55,54 +47,118 @@ func ForumCreate(db *sql.DB, params operations.ForumCreateParams) middleware.Res
 }
 
 
-func GetForumBySlug(db *sql.DB, params operations.ForumGetOneParams) middleware.Responder {
-	rows, _ := db.Query(getOneForumBySlug, params.Slug)
-	defer rows.Close()
-
-	if rows.Next() {
-		forum := &models.Forum{}
-		rows.Scan(&forum.Slug, &forum.User, &forum.Title, &forum.Posts, &forum.Threads)
-		return operations.NewForumGetOneOK().WithPayload(forum)
+func ForumGetOne(db *sql.DB, params operations.ForumGetOneParams) middleware.Responder {
+	forum := &models.Forum{}
+	err := db.QueryRow(queryGetFullForumBySlug, params.Slug).Scan(&forum.Slug, &forum.User, &forum.Title, &forum.Posts, &forum.Threads)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return operations.NewForumGetOneNotFound().WithPayload(&models.Error{ Message: "forum author not found" })
+		}
 	}
-
-	return operations.NewForumGetOneNotFound().WithPayload(&models.Error{"forum not found"})
+	return operations.NewForumGetOneOK().WithPayload(forum)
 }
 
 
 func ForumGetThreads(db *sql.DB, params operations.ForumGetThreadsParams) middleware.Responder {
-	orderCondition := ""
-	sinceCondition := ""
-
-	if *params.Desc == true {
-		orderCondition = "ORDER BY created DESC"
-		sinceCondition = "AND created <= $3"
-	} else {
-		orderCondition = "ORDER BY created"
-		sinceCondition = "AND created >= $3"
+	order := ""
+	if params.Desc != nil {
+		if *params.Desc == true {
+			order = "DESC"
+		} else {
+			order = "ASC"
+		}
 	}
 
-	limitCondition := ""
-	if *params.Limit > 0 {
-		limitCondition = "LIMIT $2"
+	since := ""
+	if params.Since != nil {
+		if params.Desc != nil && *params.Desc == true {
+			since = fmt.Sprintf("and created <= '%s'::timestamptz", params.Since)
+		} else {
+			since = fmt.Sprintf("and created >= '%s'::timestamptz", params.Since)
+		}
 	}
 
-	query := fmt.Sprintf(`SELECT T.id, author, F.slug, T.title, T.slug, T.message, T.created
-								FROM Thread as T JOIN forum as F on T.forum = F.slug
-								WHERE f.slug = $1 %s %s %s`, sinceCondition, orderCondition, limitCondition)
+	queryStatement := `SELECT T.id, T.title, T.author, F.slug, T.message, T.slug, T.created
+					   FROM Thread as T JOIN Forum as F on T.forum = F.slug
+					   WHERE F.slug = $1 %s ORDER BY created %s LIMIT $2`
 
-	rows, err := db.Query(query, params.Slug, params.Limit)
+	query := fmt.Sprintf(queryStatement, since, order)
+
+	rows, err := db.Query(query, &params.Slug, &params.Limit)
 	defer rows.Close()
 
 	if err != nil {
-		return operations.NewForumGetThreadsNotFound().WithPayload(&models.Error{err.Error()})
+		panic(err)
 	}
 
 	threads := models.Threads{}
 	for rows.Next() {
 		thread := &models.Thread{}
-		rows.Scan(&thread.ID, &thread.Author, &thread.Forum, &thread.Title, &thread.Slug, &thread.Message, &thread.Created)
+		err = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created)
+
+		if err != nil {
+			panic(err)
+		}
+
 		threads = append(threads, thread)
 	}
 
+	if contains := forumIsInDB(db, &params.Slug); !contains && len(threads) == 0 {
+		return operations.NewForumGetThreadsNotFound().WithPayload(&models.Error{Message: "forum not found"})
+	}
+
 	return operations.NewForumGetThreadsOK().WithPayload(threads)
+}
+
+
+func ForumGetUsers(db *sql.DB, params operations.ForumGetUsersParams) middleware.Responder {
+	if contains := forumIsInDB(db, &params.Slug); !contains {
+		return operations.NewForumGetUsersNotFound().WithPayload(&models.Error{Message: "forum not found"})
+	}
+
+	order := ""
+	if params.Desc != nil {
+		if *params.Desc == true {
+			order = "DESC"
+		} else {
+			order = "ASC"
+		}
+	}
+
+	since := ""
+	if params.Since != nil {
+		comparisonSign := ">"
+		if params.Desc != nil && *params.Desc == true {
+			comparisonSign = "<"
+		}
+		since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, *params.Since)
+	}
+
+	queryStatement := `SELECT U.nickname, U.fullname, U.about, U.email
+					   FROM ForumUser AS FU
+					   JOIN Users as U ON FU.nickname = U.nickname
+					   WHERE FU.slug = $1 %s
+					   ORDER BY U.nickname %s
+					   LIMIT $2`
+
+	query := fmt.Sprintf(queryStatement, since, order)
+
+	rows, err := db.Query(query, &params.Slug, &params.Limit)
+	defer rows.Close()
+
+	if err != nil {
+		panic(err)
+	}
+
+	users := models.Users{}
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+		if err != nil {
+			panic(err)
+		}
+		users = append(users, user)
+	}
+
+	return operations.NewForumGetUsersOK().WithPayload(users)
 }
