@@ -163,6 +163,8 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	since := query.Get("since")
 	desc, _ := strconv.ParseBool(query.Get("desc"))
 
+	fmt.Println(limit, since, desc)
+
 	if contains := forumIsInDB(db, &slugName); !contains {
 		//return operations.NewForumGetUsersNotFound().WithPayload(&internal.Error{Message: "forum not found"})
 		models.ErrResponse(res, http.StatusNotFound, "forum not found")
@@ -182,19 +184,24 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 		if desc == true {
 			comparisonSign = "<"
 		}
-		since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
+		sinceQuery = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
 	}
 
 	queryStatement := `SELECT U.nickname, U.fullname, U.about, U.email
 					   FROM ForumUser AS FU
 					   JOIN Users as U ON FU.nickname = U.nickname
 					   WHERE FU.slug = $1 %s
-					   ORDER BY U.nickname %s
-					   LIMIT $2`
+					   ORDER BY U.nickname %s`
+
+	if limit > 0 {
+		queryStatement = fmt.Sprintf("%s LIMIT %d", queryStatement, limit)
+	}
 
 	queryDB := fmt.Sprintf(queryStatement, sinceQuery, order)
 
-	rows, err := db.Query(queryDB, slugName, limit)
+	fmt.Println(queryDB, slugName, limit)
+
+	rows, err := db.Query(queryDB, slugName)
 	if err != nil {
 		panic(err)
 	}

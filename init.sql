@@ -1,3 +1,11 @@
+DROP TABLE IF EXISTS Users CASCADE;
+DROP TABLE IF EXISTS Forum CASCADE;
+DROP TABLE IF EXISTS ForumUser CASCADE;
+DROP TABLE IF EXISTS Post CASCADE;
+DROP TABLE IF EXISTS Thread CASCADE;
+DROP TABLE IF EXISTS VoteCount CASCADE;
+DROP TABLE IF EXISTS Vote CASCADE;
+
 CREATE EXTENSION IF NOT EXISTS CITEXT;
 
 CREATE TABLE IF NOT EXISTS Users
@@ -24,11 +32,11 @@ CREATE TABLE IF NOT EXISTS Forum
 CREATE INDEX forum_slug_hash_idx on Forum USING hash (slug);
 
 
-
+--     nickname CITEXT COLLATE "POSIX" REFERENCES Users (nickname),
 CREATE TABLE ForumUser
 (
     slug     CITEXT REFERENCES Forum (slug),
-    nickname CITEXT COLLATE "POSIX" REFERENCES Users (nickname),
+    nickname CITEXT REFERENCES Users (nickname),
     CONSTRAINT unique_slug_nickname UNIQUE (slug, nickname)
 );
 
@@ -39,7 +47,7 @@ CREATE TABLE IF NOT EXISTS Thread
     id      SERIAL                             NOT NULL PRIMARY KEY,
     author  CITEXT REFERENCES Users (nickname) NOT NULL,
     forum   CITEXT REFERENCES Forum (slug),
-    votes   INTEGER    DEFAULT 0,
+    votes   INTEGER     DEFAULT 0,
     slug    CITEXT UNIQUE,
     title   TEXT                               NOT NULL,
     message TEXT                               NOT NULL,

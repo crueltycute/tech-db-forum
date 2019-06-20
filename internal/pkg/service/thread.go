@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
@@ -134,12 +133,14 @@ func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
 		&thread.Created, &thread.Votes)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewThreadGetOneNotFound().WithPayload(&internal.Error{Message: "thread does not exist"})
-			models.ErrResponse(res, http.StatusNotFound, "thread does not exist")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewThreadGetOneNotFound().WithPayload(&internal.Error{Message: "thread does not exist"})
+		//	models.ErrResponse(res, http.StatusNotFound, "thread does not exist")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "thread does not exist")
+		return
 	}
 
 	//return operations.NewThreadGetOneOK().WithPayload(thread)

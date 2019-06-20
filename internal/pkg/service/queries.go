@@ -1,20 +1,23 @@
 package service
 
 import (
-	"database/sql"
+	"fmt"
 	"github.com/crueltycute/tech-db-forum/internal/models"
 	"github.com/jackc/pgx"
 )
 
 // service
 const queryClearDB = `
-	TRUNCATE TABLE Users CASCADE;
-	TRUNCATE TABLE Forum CASCADE;
-	TRUNCATE TABLE ForumUser CASCADE;
-	TRUNCATE TABLE Post CASCADE;
-	TRUNCATE TABLE Thread CASCADE;
-	TRUNCATE TABLE VoteCount CASCADE;
-	TRUNCATE TABLE Vote CASCADE;`
+	TRUNCATE TABLE 
+		Users, Forum, ForumUser, Post, Thread, VoteCount, Vote CASCADE`
+
+//TRUNCATE TABLE Users CASCADE;
+//	TRUNCATE TABLE Forum CASCADE;
+//	TRUNCATE TABLE ForumUser CASCADE;
+//	TRUNCATE TABLE Post CASCADE;
+//	TRUNCATE TABLE Thread CASCADE;
+//	TRUNCATE TABLE VoteCount CASCADE;
+//	TRUNCATE TABLE Vote CASCADE;
 
 const queryGetStatus = `
  SELECT
@@ -118,6 +121,7 @@ const queryGetPostByIdAndThread = `
 func forumIsInDB(db *pgx.ConnPool, forumSlug *string) bool {
 	scannedSlug := ""
 	err := db.QueryRow(queryGetForumSlugBySlug, &forumSlug).Scan(&scannedSlug)
+	fmt.Println(scannedSlug)
 
 	if err != nil {
 		//if err == sql.ErrNoRows {
@@ -135,10 +139,11 @@ func userIsInDB(db *pgx.ConnPool, nickname string) bool {
 	err := db.QueryRow(queryGetUserNickByNick, nickname).Scan(&userNickname)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 
 	return true
@@ -149,10 +154,11 @@ func threadIsInDB(db *pgx.ConnPool, slugOrId string) (bool, int32, string) {
 	err := db.QueryRow(queryGetThreadByIdOrSlug, slugOrId).Scan(&thread.ID, &thread.Slug)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, 0, ""
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	return false, 0, ""
+		//}
+		//panic(err)
+		return false, 0, ""
 	}
 	return true, thread.ID, thread.Slug
 }

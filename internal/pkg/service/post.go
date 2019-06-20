@@ -7,6 +7,7 @@ import (
 	"github.com/crueltycute/tech-db-forum/internal/models"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -90,6 +91,7 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 }
 
 func PostGetOne(res http.ResponseWriter, req *http.Request) {
+	fmt.Println(req.URL)
 	db := db2.Connection
 
 	ID := req.URL.Query().Get(":id")
@@ -102,12 +104,14 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 		&post.Thread, &post.IsEdited)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewPostGetOneNotFound().WithPayload(&internal.Error{Message: "post not found"})
-			models.ErrResponse(res, http.StatusNotFound, "post not found")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewPostGetOneNotFound().WithPayload(&internal.Error{Message: "post not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "post not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "post not found")
+		return
 	}
 
 	fullPost := &models.PostFull{Post: post}
@@ -143,10 +147,11 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 		case "thread":
 			thread := &models.Thread{}
 
-			err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, int64(post.Thread)).Scan(&thread.ID, &thread.Title,
-				&thread.Author, &thread.Forum,
-				&thread.Message, &thread.Slug,
-				&thread.Created, &thread.Votes)
+			fmt.Println(int64(post.Thread), strconv.Itoa(int(post.Thread)))
+			//strconv.Itoa(post.Thread)
+
+			err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, strconv.Itoa(int(post.Thread))).Scan(&thread.ID, &thread.Title,
+				&thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
 
 			if err != nil {
 				if err != sql.ErrNoRows {
@@ -174,12 +179,14 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 		&post.Thread, &post.IsEdited)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
-			models.ErrResponse(res, http.StatusNotFound, "post not found")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "post not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "post not found")
+		return
 	}
 
 	newPost := models.Post{}
