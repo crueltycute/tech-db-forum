@@ -14,7 +14,7 @@ import (
 func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
 
-	slugName := req.URL.Query().Get("slug")
+	slugName := req.URL.Query().Get(":slug")
 	t := models.Thread{}
 	body, _ := ioutil.ReadAll(req.Body)
 	defer req.Body.Close()
@@ -70,8 +70,9 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 
 func ThreadVote(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
+	SlugOrID := req.URL.Query().Get("slug_or_id")
 
-	exists, threadId, _ := threadIsInDB(db, params.SlugOrID)
+	exists, threadId, _ := threadIsInDB(db, SlugOrID)
 	if !exists {
 		//return operations.NewThreadVoteNotFound().WithPayload(&internal.Error{Message: "thread not found"})
 	}
@@ -94,15 +95,16 @@ func ThreadVote(res http.ResponseWriter, req *http.Request) {
 		panic(err)
 	}
 
-	return operations.NewThreadVoteOK().WithPayload(votedThread)
+	//return operations.NewThreadVoteOK().WithPayload(votedThread)
 }
 
 func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
+	slugOrID := req.URL.Query().Get("slug_or_id")
 
-	thread := &internal.Thread{}
+	thread := &models.Thread{}
 
-	err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, &params.SlugOrID).Scan(&thread.ID, &thread.Title,
+	err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, slugOrID).Scan(&thread.ID, &thread.Title,
 		&thread.Author, &thread.Forum,
 		&thread.Message, &thread.Slug,
 		&thread.Created, &thread.Votes)
@@ -211,20 +213,26 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 
 func ThreadUpdate(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
+	slugOrID := req.URL.Query().Get("slug_or_id")
 
-	exists, threadId, _ := threadIsInDB(db, params.SlugOrID)
+	exists, threadId, _ := threadIsInDB(db, slugOrID)
 
 	if !exists {
 		//return operations.NewThreadUpdateNotFound().WithPayload(&internal.Error{Message: "thread not found"})
 	}
 
-	_, err := db.Exec(queryUpdateThread, &params.Thread.Title, &params.Thread.Message, &threadId)
+	t := models.Thread{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	t.UnmarshalJSON(body)
+
+	_, err := db.Exec(queryUpdateThread, &t.Title, &t.Message, &threadId)
 	if err != nil {
 		panic(err)
 	}
 
-	thread := &internal.Thread{}
-	err = db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, &params.SlugOrID).Scan(&thread.ID, &thread.Title,
+	thread := &models.Thread{}
+	err = db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, slugOrID).Scan(&thread.ID, &thread.Title,
 		&thread.Author, &thread.Forum,
 		&thread.Message, &thread.Slug,
 		&thread.Created, &thread.Votes)

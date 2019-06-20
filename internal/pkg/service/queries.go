@@ -2,7 +2,8 @@ package service
 
 import (
 	"database/sql"
-	"github.com/crueltycute/tech-db-forum/internal"
+	"github.com/crueltycute/tech-db-forum/internal/models"
+	"github.com/jackc/pgx"
 )
 
 // service
@@ -114,7 +115,7 @@ const queryGetPostByIdAndThread = `
 	WHERE id = $1 and thread = $2`
 
 // existence check
-func forumIsInDB(db *sql.DB, forumSlug *string) bool {
+func forumIsInDB(db *pgx.ConnPool, forumSlug *string) bool {
 	scannedSlug := ""
 	err := db.QueryRow(queryGetForumSlugBySlug, &forumSlug).Scan(&scannedSlug)
 
@@ -128,7 +129,7 @@ func forumIsInDB(db *sql.DB, forumSlug *string) bool {
 	return true
 }
 
-func userIsInDB(db *sql.DB, nickname string) bool {
+func userIsInDB(db *pgx.ConnPool, nickname string) bool {
 	var userNickname string
 	err := db.QueryRow(queryGetUserNickByNick, nickname).Scan(&userNickname)
 
@@ -142,8 +143,8 @@ func userIsInDB(db *sql.DB, nickname string) bool {
 	return true
 }
 
-func threadIsInDB(db *sql.DB, slugOrId string) (bool, int32, string) {
-	thread := &internal.Thread{}
+func threadIsInDB(db *pgx.ConnPool, slugOrId string) (bool, int32, string) {
+	thread := &models.Thread{}
 	err := db.QueryRow(queryGetThreadByIdOrSlug, slugOrId).Scan(&thread.ID, &thread.Slug)
 
 	if err != nil {
@@ -155,8 +156,8 @@ func threadIsInDB(db *sql.DB, slugOrId string) (bool, int32, string) {
 	return true, thread.ID, thread.Slug
 }
 
-func postIsInThread(db *sql.DB, postId, threadId int64) bool {
-	post := &internal.Post{}
+func postIsInThread(db *pgx.ConnPool, postId, threadId int64) bool {
+	post := &models.Post{}
 	err := db.QueryRow(queryGetPostByIdAndThread, postId, threadId).Scan(&post.ID)
 
 	if err != nil {

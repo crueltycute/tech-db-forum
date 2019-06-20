@@ -3,30 +3,41 @@ package service
 import (
 	"database/sql"
 	"fmt"
-	"github.com/crueltycute/tech-db-forum/internal"
-	"github.com/crueltycute/tech-db-forum/restapi/operations"
+	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
+	"github.com/crueltycute/tech-db-forum/internal/models"
+	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 func PostsCreate(res http.ResponseWriter, req *http.Request) {
+	db := db2.Connection
+
+	slugOrID := req.URL.Query().Get(":slug_or_id")
+
 	var exists bool
 	var threadId int32
 	var forumSlug string
-	if exists, threadId, forumSlug = threadIsInDB(db, params.SlugOrID); !exists {
-		return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "slug or id not found"})
+	if exists, threadId, forumSlug = threadIsInDB(db, slugOrID); !exists {
+		//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "slug or id not found"})
 	}
 
+	postsToCreate := models.Posts{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	_ = postsToCreate.UnmarshalJSON(body)
+
 	queryStatement := "INSERT INTO post (parent, author, message, thread) VALUES "
-	vals := []interface{}{}
+	var vals []interface{}
 
 	rowIndex := 0
-	for _, post := range params.Posts {
+	for _, post := range postsToCreate {
 		if inThread := postIsInThread(db, post.Parent, int64(threadId)); post.Parent != 0 && !inThread {
-			return operations.NewPostsCreateConflict().WithPayload(&internal.Error{Message: "parent is in another thread"})
+			//return operations.NewPostsCreateConflict().WithPayload(&internal.Error{Message: "parent is in another thread"})
 		}
 
 		if exists := userIsInDB(db, post.Author); !exists {
-			return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "author not found"})
+			//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "author not found"})
 		}
 
 		queryStatement += fmt.Sprintf("(NULLIF($%d, 0), $%d, $%d, $%d),", (rowIndex*4)+1,
@@ -38,14 +49,14 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if rowIndex == 0 {
-		posts := internal.Posts{}
-		return operations.NewPostsCreateCreated().WithPayload(posts)
+		//posts := models.Posts{}
+		//return operations.NewPostsCreateCreated().WithPayload(posts)
 	}
 
 	queryStatement = queryStatement[0 : len(queryStatement)-1]
 	queryStatement += " RETURNING author, created, id, message, thread, coalesce(parent, 0)"
 
-	postsAdded := internal.Posts{}
+	postsAdded := models.Posts{}
 	rows, err := db.Query(queryStatement, vals...)
 	defer rows.Close()
 
@@ -54,7 +65,7 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	for rows.Next() {
-		post := &internal.Post{}
+		post := &models.Post{}
 		err := rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		if err != nil {
@@ -65,28 +76,34 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 		postsAdded = append(postsAdded, post)
 	}
 
-	return operations.NewPostsCreateCreated().WithPayload(postsAdded)
+	//return operations.NewPostsCreateCreated().WithPayload(postsAdded)
 }
 
 func PostGetOne(res http.ResponseWriter, req *http.Request) {
-	post := &internal.Post{}
-	err := db.QueryRow(queryGetPostById, &params.ID).Scan(&post.Author, &post.Created,
+	db := db2.Connection
+
+	ID := req.URL.Query().Get(":id")
+	query := req.URL.Query()
+	related := strings.Split(query.Get("related"), ",")
+
+	post := &models.Post{}
+	err := db.QueryRow(queryGetPostById, ID).Scan(&post.Author, &post.Created,
 		&post.Forum, &post.ID, &post.Message,
 		&post.Thread, &post.IsEdited)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return operations.NewPostGetOneNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			//return operations.NewPostGetOneNotFound().WithPayload(&internal.Error{Message: "post not found"})
 		}
 		panic(err)
 	}
 
-	fullPost := &internal.PostFull{Post: post}
+	fullPost := &models.PostFull{Post: post}
 
-	for _, relatedStr := range params.Related {
+	for _, relatedStr := range related {
 		switch relatedStr {
 		case "user":
-			user := &internal.User{}
+			user := &models.User{}
 
 			err := db.QueryRow(queryGetUserByNick, &post.Author).Scan(&user.Nickname, &user.Fullname,
 				&user.Email, &user.About)
@@ -99,7 +116,7 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 
 			fullPost.Author = user
 		case "forum":
-			forum := &internal.Forum{}
+			forum := &models.Forum{}
 
 			err := db.QueryRow(queryGetFullForumBySlug, &post.Forum).Scan(&forum.Slug, &forum.User,
 				&forum.Title, &forum.Posts, &forum.Threads)
@@ -112,7 +129,7 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 
 			fullPost.Forum = forum
 		case "thread":
-			thread := &internal.Thread{}
+			thread := &models.Thread{}
 
 			err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, int64(post.Thread)).Scan(&thread.ID, &thread.Title,
 				&thread.Author, &thread.Forum,
@@ -129,39 +146,48 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	return operations.NewPostGetOneOK().WithPayload(fullPost)
+	//return operations.NewPostGetOneOK().WithPayload(fullPost)
 }
 
 func PostUpdate(res http.ResponseWriter, req *http.Request) {
-	post := &internal.Post{}
-	err := db.QueryRow(queryGetPostById, &params.ID).Scan(&post.Author, &post.Created,
+	db := db2.Connection
+
+	ID := req.URL.Query().Get(":id")
+
+	post := &models.Post{}
+	err := db.QueryRow(queryGetPostById, ID).Scan(&post.Author, &post.Created,
 		&post.Forum, &post.ID, &post.Message,
 		&post.Thread, &post.IsEdited)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
 		}
 		panic(err)
 	}
 
-	_, err = db.Exec(queryUpdatePost, &params.Post.Message, &params.ID)
+	newPost := models.Post{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	_ = newPost.UnmarshalJSON(body)
+
+	_, err = db.Exec(queryUpdatePost, newPost.Message, ID)
 
 	if err != nil {
 		panic(err)
 	}
 
-	updatedPost := &internal.Post{}
-	err = db.QueryRow(queryGetPostById, &params.ID).Scan(&updatedPost.Author, &updatedPost.Created,
+	updatedPost := &models.Post{}
+	err = db.QueryRow(queryGetPostById, ID).Scan(&updatedPost.Author, &updatedPost.Created,
 		&updatedPost.Forum, &updatedPost.ID, &updatedPost.Message,
 		&updatedPost.Thread, &updatedPost.IsEdited)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
 		}
 		panic(err)
 	}
 
-	return operations.NewPostUpdateOK().WithPayload(updatedPost)
+	//return operations.NewPostUpdateOK().WithPayload(updatedPost)
 }

@@ -3,6 +3,7 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
@@ -56,7 +57,7 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 }
 
 func ForumGetOne(res http.ResponseWriter, req *http.Request) {
-	slug := req.URL.Query().Get("slug")
+	slug := req.URL.Query().Get(":slug")
 	db := db2.Connection
 
 	forum := &models.Forum{}
@@ -70,40 +71,44 @@ func ForumGetOne(res http.ResponseWriter, req *http.Request) {
 }
 
 func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
+	db := db2.Connection
+
+	slugName := req.URL.Query().Get(":slug")
+	query := req.URL.Query()
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	since := query.Get("since")
+	desc, _ := strconv.ParseBool(query.Get("desc"))
+
 	order := ""
-	if params.Desc != nil {
-		if *params.Desc == true {
-			order = "DESC"
-		} else {
-			order = "ASC"
-		}
+	if desc == true {
+		order = "DESC"
+	} else {
+		order = "ASC"
 	}
 
-	since := ""
-	if params.Since != nil {
-		if params.Desc != nil && *params.Desc == true {
-			since = fmt.Sprintf("and created <= '%s'::timestamptz", params.Since)
-		} else {
-			since = fmt.Sprintf("and created >= '%s'::timestamptz", params.Since)
-		}
+	sinceDB := ""
+	if desc == true {
+		since = fmt.Sprintf("and created <= '%s'::timestamptz", since)
+	} else {
+		since = fmt.Sprintf("and created >= '%s'::timestamptz", since)
 	}
 
 	queryStatement := `SELECT T.id, T.title, T.author, F.slug, T.message, T.slug, T.created
 					   FROM Thread as T JOIN Forum as F on T.forum = F.slug
 					   WHERE F.slug = $1 %s ORDER BY created %s LIMIT $2`
 
-	query := fmt.Sprintf(queryStatement, since, order)
+	queryDB := fmt.Sprintf(queryStatement, sinceDB, order)
 
-	rows, err := db.Query(query, &params.Slug, &params.Limit)
+	rows, err := db.Query(queryDB, slugName, limit)
 	defer rows.Close()
 
 	if err != nil {
 		panic(err)
 	}
 
-	threads := internal.Threads{}
+	threads := models.Threads{}
 	for rows.Next() {
-		thread := &internal.Thread{}
+		thread := &models.Thread{}
 		err = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created)
 
 		if err != nil {
@@ -113,7 +118,7 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 		threads = append(threads, thread)
 	}
 
-	if contains := forumIsInDB(db, &params.Slug); !contains && len(threads) == 0 {
+	if contains := forumIsInDB(db, &slugName); !contains && len(threads) == 0 {
 		//return operations.NewForumGetThreadsNotFound().WithPayload(&internal.Error{Message: "forum not found"})
 	}
 
@@ -121,27 +126,32 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 }
 
 func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
-	if contains := forumIsInDB(db, &params.Slug); !contains {
+	db := db2.Connection
+
+	slugName := req.URL.Query().Get(":slug")
+
+	query := req.URL.Query()
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	since := query.Get("since")
+	desc, _ := strconv.ParseBool(query.Get("desc"))
+
+	if contains := forumIsInDB(db, &slugName); !contains {
 		//return operations.NewForumGetUsersNotFound().WithPayload(&internal.Error{Message: "forum not found"})
 	}
 
 	order := ""
-	if params.Desc != nil {
-		if *params.Desc == true {
-			order = "DESC"
-		} else {
-			order = "ASC"
-		}
+	if desc == true {
+		order = "DESC"
+	} else {
+		order = "ASC"
 	}
 
-	since := ""
-	if params.Since != nil {
-		comparisonSign := ">"
-		if params.Desc != nil && *params.Desc == true {
-			comparisonSign = "<"
-		}
-		since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, *params.Since)
+	sinceQuery := ""
+	comparisonSign := ">"
+	if desc == true {
+		comparisonSign = "<"
 	}
+	since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
 
 	queryStatement := `SELECT U.nickname, U.fullname, U.about, U.email
 					   FROM ForumUser AS FU
@@ -150,18 +160,18 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 					   ORDER BY U.nickname %s
 					   LIMIT $2`
 
-	query := fmt.Sprintf(queryStatement, since, order)
+	queryDB := fmt.Sprintf(queryStatement, sinceQuery, order)
 
-	rows, err := db.Query(query, &params.Slug, &params.Limit)
+	rows, err := db.Query(queryDB, slugName, limit)
 	defer rows.Close()
 
 	if err != nil {
 		panic(err)
 	}
 
-	users := internal.Users{}
+	users := models.Users{}
 	for rows.Next() {
-		user := &internal.User{}
+		user := &models.User{}
 		err := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
 		if err != nil {
 			panic(err)
