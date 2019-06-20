@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
+	"strconv"
 
 	"github.com/crueltycute/tech-db-forum/internal/models"
 	"io/ioutil"
@@ -28,6 +29,8 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
+			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+			return
 		}
 		panic(err)
 	}
@@ -38,6 +41,8 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+			models.ErrResponse(res, http.StatusNotFound, "forum not found")
+			return
 		}
 		panic(err)
 	}
@@ -58,6 +63,8 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 			}
 
 			//return operations.NewThreadCreateConflict().WithPayload(existingThread)
+			models.ResponseObject(res, http.StatusConflict, existingThread)
+			return
 		}
 	}
 
@@ -66,27 +73,38 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 		&thread.Message, &thread.Created)
 
 	//return operations.NewThreadCreateCreated().WithPayload(thread)
+	models.ResponseObject(res, http.StatusOK, thread)
+	return
 }
 
 func ThreadVote(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
-	SlugOrID := req.URL.Query().Get("slug_or_id")
+	SlugOrID := req.URL.Query().Get(":slug_or_id")
 
 	exists, threadId, _ := threadIsInDB(db, SlugOrID)
 	if !exists {
 		//return operations.NewThreadVoteNotFound().WithPayload(&internal.Error{Message: "thread not found"})
+		models.ErrResponse(res, http.StatusNotFound, "thread not found")
+		return
 	}
 
-	_, err := db.Exec(queryAddVote, threadId, &params.Vote.Nickname, &params.Vote.Voice)
+	voteToCreate := models.Vote{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	_ = voteToCreate.UnmarshalJSON(body)
+
+	_, err := db.Exec(queryAddVote, threadId, voteToCreate.Nickname, voteToCreate.Voice)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "vote_nickname_fkey") {
 			//return operations.NewThreadVoteNotFound().WithPayload(&internal.Error{Message: "nickname not found"})
+			models.ErrResponse(res, http.StatusNotFound, "nickname not found")
+			return
 		}
 		panic(err)
 	}
 
-	votedThread := &internal.Thread{}
+	votedThread := &models.Thread{}
 
 	err = db.QueryRow(queryGetThreadAndVoteCountById, &threadId).Scan(&votedThread.ID, &votedThread.Title, &votedThread.Author,
 		&votedThread.Forum, &votedThread.Message, &votedThread.Votes,
@@ -96,11 +114,13 @@ func ThreadVote(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewThreadVoteOK().WithPayload(votedThread)
+	models.ResponseObject(res, http.StatusOK, votedThread)
+	return
 }
 
 func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
-	slugOrID := req.URL.Query().Get("slug_or_id")
+	slugOrID := req.URL.Query().Get(":slug_or_id")
 
 	thread := &models.Thread{}
 
@@ -112,47 +132,56 @@ func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewThreadGetOneNotFound().WithPayload(&internal.Error{Message: "thread does not exist"})
+			models.ErrResponse(res, http.StatusNotFound, "thread does not exist")
+			return
 		}
 		panic(err)
 	}
 
 	//return operations.NewThreadGetOneOK().WithPayload(thread)
+	models.ResponseObject(res, http.StatusOK, thread)
+	return
 }
 
 func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
+	slugOrID := req.URL.Query().Get(":slug_or_id")
 
-	exists, threadId, _ := threadIsInDB(db, params.SlugOrID)
+	exists, threadId, _ := threadIsInDB(db, slugOrID)
 
 	if !exists {
 		//return operations.NewThreadVoteNotFound().WithPayload(&internal.Error{Message: "thread not found"})
+		models.ErrResponse(res, http.StatusNotFound, "thread not found")
+		return
 	}
 
-	order := ""
-	if params.Desc != nil {
-		if *params.Desc == true {
-			order = "DESC"
-		} else {
-			order = "ASC"
-		}
+	query := req.URL.Query()
+	limit, _ := strconv.Atoi(query.Get("limit"))
+	since, _ := strconv.Atoi(query.Get("since"))
+	sort := query.Get("sort")
+	desc, _ := strconv.ParseBool(query.Get("desc"))
+
+	orderDB := ""
+	if desc == true {
+		orderDB = "DESC"
+	} else {
+		orderDB = "ASC"
 	}
 
-	since := ""
-	if params.Since != nil {
-		comparisonSign := ">"
-		if params.Desc != nil && *params.Desc == true {
-			comparisonSign = "<"
-		}
+	sinceDB := ""
+	comparisonSign := ">"
+	if desc == true {
+		comparisonSign = "<"
+	}
 
-		since = fmt.Sprintf("and post.id %s %d", comparisonSign, *params.Since)
-		if *params.Sort == "tree" {
-			since = fmt.Sprintf("and post.path %s (SELECT tree_post.path FROM post AS tree_post WHERE tree_post.id = %d)",
-				comparisonSign, *params.Since)
-		}
-		if *params.Sort == "parent_tree" {
-			since = fmt.Sprintf("and post_roots.path[1] %s (SELECT tree_post.path[1] FROM post AS tree_post WHERE tree_post.id = %d)",
-				comparisonSign, *params.Since)
-		}
+	sinceDB = fmt.Sprintf("and post.id %s %d", comparisonSign, since)
+	if sort == "tree" {
+		sinceDB = fmt.Sprintf("and post.path %s (SELECT tree_post.path FROM post AS tree_post WHERE tree_post.id = %d)",
+			comparisonSign, since)
+	}
+	if sort == "parent_tree" {
+		sinceDB = fmt.Sprintf("and post_roots.path[1] %s (SELECT tree_post.path[1] FROM post AS tree_post WHERE tree_post.id = %d)",
+			comparisonSign, since)
 	}
 
 	queryStatement := `SELECT post.author, post.created, thread.forum, post.id, 
@@ -163,9 +192,9 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 							  ORDER BY (post.created, post.id) %s
 							  LIMIT $2`
 
-	query := fmt.Sprintf(queryStatement, since, order)
+	queryDB := fmt.Sprintf(queryStatement, sinceDB, orderDB)
 
-	if *params.Sort == "tree" {
+	if sort == "tree" {
 		queryStatement = `SELECT post.author, post.created, thread.forum, post.id, 
 						  		 post.message, post.thread, coalesce(post.parent, 0)
 						  	     FROM post
@@ -173,8 +202,8 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 						  		 WHERE post.thread = $1 %s
 						  		 ORDER BY (post.path, post.created) %s
 						  		 LIMIT $2`
-		query = fmt.Sprintf(queryStatement, since, order)
-	} else if *params.Sort == "parent_tree" {
+		queryDB = fmt.Sprintf(queryStatement, sinceDB, orderDB)
+	} else if sort == "parent_tree" {
 		queryStatement = `SELECT post.author, post.created, thread.forum, post.id, 
 								 post.message, post.thread, coalesce(post.parent, 0)
 								 FROM post
@@ -187,19 +216,19 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 									LIMIT $2
 								 )
 								 ORDER BY post.path[1] %s, post.path`
-		query = fmt.Sprintf(queryStatement, since, order, order)
+		queryDB = fmt.Sprintf(queryStatement, sinceDB, orderDB, orderDB)
 	}
 
-	rows, err := db.Query(query, threadId, *params.Limit)
+	rows, err := db.Query(queryDB, threadId, limit)
 	defer rows.Close()
 
 	if err != nil {
 		panic(err)
 	}
 
-	posts := internal.Posts{}
+	posts := models.Posts{}
 	for rows.Next() {
-		post := &internal.Post{}
+		post := &models.Post{}
 		err := rows.Scan(&post.Author, &post.Created, &post.Forum, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		if err != nil {
@@ -208,23 +237,28 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 
 		posts = append(posts, post)
 	}
+
 	//return operations.NewThreadGetPostsOK().WithPayload(posts)
+	models.ResponseObject(res, http.StatusOK, posts)
+	return
 }
 
 func ThreadUpdate(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
-	slugOrID := req.URL.Query().Get("slug_or_id")
+	slugOrID := req.URL.Query().Get(":slug_or_id")
 
 	exists, threadId, _ := threadIsInDB(db, slugOrID)
 
 	if !exists {
 		//return operations.NewThreadUpdateNotFound().WithPayload(&internal.Error{Message: "thread not found"})
+		models.ErrResponse(res, http.StatusNotFound, "thread not found")
+		return
 	}
 
 	t := models.Thread{}
 	body, _ := ioutil.ReadAll(req.Body)
 	defer req.Body.Close()
-	t.UnmarshalJSON(body)
+	_ = t.UnmarshalJSON(body)
 
 	_, err := db.Exec(queryUpdateThread, &t.Title, &t.Message, &threadId)
 	if err != nil {
@@ -242,4 +276,6 @@ func ThreadUpdate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewThreadUpdateOK().WithPayload(thread)
+	models.ResponseObject(res, http.StatusOK, thread)
+	return
 }

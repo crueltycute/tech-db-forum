@@ -20,6 +20,8 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	var forumSlug string
 	if exists, threadId, forumSlug = threadIsInDB(db, slugOrID); !exists {
 		//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "slug or id not found"})
+		models.ErrResponse(res, http.StatusNotFound, "slug or id not found")
+		return
 	}
 
 	postsToCreate := models.Posts{}
@@ -34,10 +36,14 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	for _, post := range postsToCreate {
 		if inThread := postIsInThread(db, post.Parent, int64(threadId)); post.Parent != 0 && !inThread {
 			//return operations.NewPostsCreateConflict().WithPayload(&internal.Error{Message: "parent is in another thread"})
+			models.ErrResponse(res, http.StatusConflict, "parent is in another thread")
+			return
 		}
 
 		if exists := userIsInDB(db, post.Author); !exists {
 			//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "author not found"})
+			models.ErrResponse(res, http.StatusNotFound, "author not found")
+			return
 		}
 
 		queryStatement += fmt.Sprintf("(NULLIF($%d, 0), $%d, $%d, $%d),", (rowIndex*4)+1,
@@ -49,8 +55,10 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if rowIndex == 0 {
-		//posts := models.Posts{}
+		posts := models.Posts{}
 		//return operations.NewPostsCreateCreated().WithPayload(posts)
+		models.ResponseObject(res, http.StatusOK, posts)
+		return
 	}
 
 	queryStatement = queryStatement[0 : len(queryStatement)-1]
@@ -77,6 +85,8 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewPostsCreateCreated().WithPayload(postsAdded)
+	models.ResponseObject(res, http.StatusOK, postsAdded)
+	return
 }
 
 func PostGetOne(res http.ResponseWriter, req *http.Request) {
@@ -94,6 +104,8 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewPostGetOneNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			models.ErrResponse(res, http.StatusNotFound, "post not found")
+			return
 		}
 		panic(err)
 	}
@@ -147,6 +159,8 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewPostGetOneOK().WithPayload(fullPost)
+	models.ResponseObject(res, http.StatusOK, fullPost)
+	return
 }
 
 func PostUpdate(res http.ResponseWriter, req *http.Request) {
@@ -162,6 +176,8 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			models.ErrResponse(res, http.StatusNotFound, "post not found")
+			return
 		}
 		panic(err)
 	}
@@ -185,9 +201,13 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewPostUpdateNotFound().WithPayload(&internal.Error{Message: "post not found"})
+			models.ErrResponse(res, http.StatusNotFound, "post not found")
+			return
 		}
 		panic(err)
 	}
 
 	//return operations.NewPostUpdateOK().WithPayload(updatedPost)
+	models.ResponseObject(res, http.StatusOK, updatedPost)
+	return
 }

@@ -28,6 +28,8 @@ RUN echo "listen_addresses='*'" >> /etc/postgresql/$PGVER/main/postgresql.conf
 EXPOSE 5432
 VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
-RUN go get ./...
-
-CMD service postgresql start && go run ./cmd/forum-server/main.go --scheme=http --port=5000 --host=0.0.0.0
+#RUN go get ./...
+#CMD service postgresql start && go run ./cmd/forum-server/main.go --scheme=http --port=5000 --host=0.0.0.0
+RUN ls
+RUN go build cmd/main.go
+CMD service postgresql start && ./main

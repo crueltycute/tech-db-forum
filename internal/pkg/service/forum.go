@@ -26,6 +26,8 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum author not found"})
+			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+			return
 		}
 		panic(err)
 	}
@@ -42,8 +44,12 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 			}
 
 			//return operations.NewForumCreateConflict().WithPayload(existingForum)
+			models.ResponseObject(res, http.StatusConflict, existingForum)
+			return
 		}
 		//return operations.NewForumCreateNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
+		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		return
 	}
 
 	createdForum := &models.Forum{}
@@ -54,6 +60,8 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewForumCreateCreated().WithPayload(createdForum)
+	models.ResponseObject(res, http.StatusOK, createdForum)
+	return
 }
 
 func ForumGetOne(res http.ResponseWriter, req *http.Request) {
@@ -65,9 +73,13 @@ func ForumGetOne(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			//return operations.NewForumGetOneNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
+			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+			return
 		}
 	}
 	//return operations.NewForumGetOneOK().WithPayload(forum)
+	models.ResponseObject(res, http.StatusOK, forum)
+	return
 }
 
 func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
@@ -120,9 +132,13 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 
 	if contains := forumIsInDB(db, &slugName); !contains && len(threads) == 0 {
 		//return operations.NewForumGetThreadsNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+		models.ErrResponse(res, http.StatusNotFound, "forum not found")
+		return
 	}
 
 	//return operations.NewForumGetThreadsOK().WithPayload(threads)
+	models.ResponseObject(res, http.StatusOK, threads)
+	return
 }
 
 func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
@@ -137,6 +153,8 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 
 	if contains := forumIsInDB(db, &slugName); !contains {
 		//return operations.NewForumGetUsersNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+		models.ErrResponse(res, http.StatusNotFound, "forum not found")
+		return
 	}
 
 	order := ""
@@ -180,4 +198,6 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewForumGetUsersOK().WithPayload(users)
+	models.ResponseObject(res, http.StatusOK, users)
+	return
 }

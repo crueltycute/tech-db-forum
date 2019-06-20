@@ -1,15 +1,24 @@
 package service
 
 import (
-	"github.com/crueltycute/tech-db-forum/internal"
-	"github.com/crueltycute/tech-db-forum/restapi/operations"
+	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
+	"github.com/crueltycute/tech-db-forum/internal/models"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
 
 func UsersCreate(res http.ResponseWriter, req *http.Request) {
-	user := params.Profile
-	user.Nickname = params.Nickname
+	db := db2.Connection
+	nickname := req.URL.Query().Get(":nickname")
+
+	profile := models.User{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	_ = profile.UnmarshalJSON(body)
+
+	user := profile
+	user.Nickname = nickname
 
 	_, err := db.Exec(queryAddUser, &user.Nickname, &user.Fullname, &user.Email, &user.About)
 
@@ -22,10 +31,10 @@ func UsersCreate(res http.ResponseWriter, req *http.Request) {
 				panic(err)
 			}
 
-			existingUsers := internal.Users{}
+			existingUsers := models.Users{}
 
 			for rows.Next() {
-				existingUser := &internal.User{}
+				existingUser := &models.User{}
 				err = rows.Scan(&existingUser.Nickname, &existingUser.Fullname, &existingUser.Email, &existingUser.About)
 
 				if err != nil {
@@ -35,49 +44,74 @@ func UsersCreate(res http.ResponseWriter, req *http.Request) {
 				existingUsers = append(existingUsers, existingUser)
 			}
 
-			return operations.NewUserCreateConflict().WithPayload(existingUsers)
+			//return operations.NewUserCreateConflict().WithPayload(existingUsers)
+			models.ResponseObject(res, http.StatusConflict, existingUsers)
+			return
 		}
 		panic(err)
 	}
 
-	return operations.NewUserCreateCreated().WithPayload(user)
+	//return operations.NewUserCreateCreated().WithPayload(user)
+	models.ResponseObject(res, http.StatusOK, user)
+	return
 }
 
 func UsersGetOne(res http.ResponseWriter, req *http.Request) {
-	nickname := params.Nickname
+	db := db2.Connection
+	nickname := req.URL.Query().Get(":nickname")
+
+	//nickname := params.Nickname
 
 	rows, _ := db.Query(queryGetUserByNick, nickname)
 	defer rows.Close()
 
 	if rows.Next() {
-		user := &internal.User{}
-		rows.Scan(&user.Nickname, &user.Fullname, &user.Email, &user.About)
-		return operations.NewUserGetOneOK().WithPayload(user)
+		user := &models.User{}
+		_ = rows.Scan(&user.Nickname, &user.Fullname, &user.Email, &user.About)
+		//return operations.NewUserGetOneOK().WithPayload(user)
+		models.ResponseObject(res, http.StatusOK, user)
+		return
 	}
 
-	return operations.NewUserGetOneNotFound().WithPayload(&internal.Error{Message: "user not found"})
+	//return operations.NewUserGetOneNotFound().WithPayload(&internal.Error{Message: "user not found"})
+	models.ErrResponse(res, http.StatusNotFound, "user not found")
+	return
 }
 
 func UsersUpdate(res http.ResponseWriter, req *http.Request) {
-	_, err := db.Exec(queryUpdateUser, &params.Profile.Fullname,
-		&params.Profile.Email, &params.Profile.About,
-		&params.Nickname)
+	db := db2.Connection
+	nickname := req.URL.Query().Get(":nickname")
+
+	u := models.User{}
+	body, _ := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	_ = u.UnmarshalJSON(body)
+
+	_, err := db.Exec(queryUpdateUser, &u.Fullname, &u.Email, &u.About, &nickname)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			return operations.NewUserUpdateConflict().WithPayload(&internal.Error{"cannot update user"})
+			//return operations.NewUserUpdateConflict().WithPayload(&internal.Error{"cannot update user"})
+			models.ErrResponse(res, http.StatusConflict, "cannot update user")
+			return
 		}
-		return operations.NewUserUpdateNotFound().WithPayload(&internal.Error{Message: "user not found"})
+		//return operations.NewUserUpdateNotFound().WithPayload(&internal.Error{Message: "user not found"})
+		models.ErrResponse(res, http.StatusNotFound, "user not found")
+		return
 	}
 
-	rows, _ := db.Query(queryGetUserByNick, params.Nickname)
+	rows, _ := db.Query(queryGetUserByNick, nickname)
 	defer rows.Close()
 
 	if rows.Next() {
-		user := &internal.User{}
-		rows.Scan(&user.Nickname, &user.Fullname, &user.Email, &user.About)
-		return operations.NewUserUpdateOK().WithPayload(user)
+		user := &models.User{}
+		_ = rows.Scan(&user.Nickname, &user.Fullname, &user.Email, &user.About)
+		//return operations.NewUserUpdateOK().WithPayload(user)
+		models.ResponseObject(res, http.StatusOK, user)
+		return
 	}
 
-	return operations.NewUserUpdateNotFound().WithPayload(&internal.Error{Message: "updated user not found"})
+	//return operations.NewUserUpdateNotFound().WithPayload(&internal.Error{Message: "updated user not found"})
+	models.ErrResponse(res, http.StatusNotFound, "thread not found")
+	return
 }

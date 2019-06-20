@@ -11,6 +11,10 @@ func Clear(res http.ResponseWriter, req *http.Request) {
 
 	db.QueryRow(queryClearDB)
 	//return operations.NewClearOK()
+
+	// по логике не подходит, но мне влом делать новый тип респонсов
+	models.ErrResponse(res, http.StatusOK, "ok")
+	return
 }
 
 func Status(res http.ResponseWriter, req *http.Request) {
@@ -22,4 +26,6 @@ func Status(res http.ResponseWriter, req *http.Request) {
 		panic(err)
 	}
 	//return operations.NewStatusOK().WithPayload(status)
+	models.ResponseObject(res, http.StatusOK, status)
+	return
 }
