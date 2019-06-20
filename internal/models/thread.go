@@ -1,19 +1,18 @@
 package models
 
 import (
-	"github.com/go-openapi/strfmt"
+	"time"
 )
 
 //easyjson:json
 type Thread struct {
-
 	// Пользователь, создавший данную тему.
 	// Required: true
 	Author string `json:"author"`
 
 	// Дата создания ветки на форуме.
 	// Format: date-time
-	Created *strfmt.DateTime `json:"created,omitempty"`
+	Created time.Time `json:"created,omitempty"`
 
 	// Форум, в котором расположена данная ветка обсуждения.
 	// Read Only: true

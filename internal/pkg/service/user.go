@@ -52,7 +52,7 @@ func UsersCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewUserCreateCreated().WithPayload(user)
-	models.ResponseObject(res, http.StatusOK, user)
+	models.ResponseObject(res, http.StatusCreated, user)
 	return
 }
 

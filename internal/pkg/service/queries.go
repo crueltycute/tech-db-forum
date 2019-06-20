@@ -120,10 +120,11 @@ func forumIsInDB(db *pgx.ConnPool, forumSlug *string) bool {
 	err := db.QueryRow(queryGetForumSlugBySlug, &forumSlug).Scan(&scannedSlug)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 
 	return true
@@ -161,10 +162,11 @@ func postIsInThread(db *pgx.ConnPool, postId, threadId int64) bool {
 	err := db.QueryRow(queryGetPostByIdAndThread, postId, threadId).Scan(&post.ID)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 	return post.ID == postId
 }

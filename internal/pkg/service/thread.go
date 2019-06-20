@@ -4,11 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
-	"strconv"
-
 	"github.com/crueltycute/tech-db-forum/internal/models"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -22,29 +21,35 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	_ = t.UnmarshalJSON(body)
 
 	t.Forum = slugName
+	//fmt.Println(t)
 
 	var nickname string
 	err := db.QueryRow(queryGetUserNickByNick, t.Author).Scan(&nickname)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
-			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		return
 	}
 
 	var slug string
-	err = db.QueryRow(queryGetForumSlugBySlug, t.Slug).Scan(&slug)
+	err = db.QueryRow(queryGetForumSlugBySlug, t.Forum).Scan(&slug)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum not found"})
-			models.ErrResponse(res, http.StatusNotFound, "forum not found")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewThreadCreateNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "forum not found")
+		//	return
+		//}
+		//panic(err)
+		fmt.Println(err, slug)
+		models.ErrResponse(res, http.StatusNotFound, "forum not found th")
+		return
 	}
 
 	thread := &models.Thread{}
@@ -69,11 +74,10 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	err = db.QueryRow(queryGetThreadById, thread.ID).Scan(&thread.Author, &thread.Forum,
-		&thread.Title, &thread.Slug,
-		&thread.Message, &thread.Created)
+		&thread.Title, &thread.Slug, &thread.Message, &thread.Created)
 
 	//return operations.NewThreadCreateCreated().WithPayload(thread)
-	models.ResponseObject(res, http.StatusOK, thread)
+	models.ResponseObject(res, http.StatusCreated, thread)
 	return
 }
 
@@ -169,19 +173,21 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 	}
 
 	sinceDB := ""
-	comparisonSign := ">"
-	if desc == true {
-		comparisonSign = "<"
-	}
+	if since != 0 {
+		comparisonSign := ">"
+		if desc == true {
+			comparisonSign = "<"
+		}
 
-	sinceDB = fmt.Sprintf("and post.id %s %d", comparisonSign, since)
-	if sort == "tree" {
-		sinceDB = fmt.Sprintf("and post.path %s (SELECT tree_post.path FROM post AS tree_post WHERE tree_post.id = %d)",
-			comparisonSign, since)
-	}
-	if sort == "parent_tree" {
-		sinceDB = fmt.Sprintf("and post_roots.path[1] %s (SELECT tree_post.path[1] FROM post AS tree_post WHERE tree_post.id = %d)",
-			comparisonSign, since)
+		sinceDB = fmt.Sprintf("and post.id %s %d", comparisonSign, since)
+		if sort == "tree" {
+			sinceDB = fmt.Sprintf("and post.path %s (SELECT tree_post.path FROM post AS tree_post WHERE tree_post.id = %d)",
+				comparisonSign, since)
+		}
+		if sort == "parent_tree" {
+			sinceDB = fmt.Sprintf("and post_roots.path[1] %s (SELECT tree_post.path[1] FROM post AS tree_post WHERE tree_post.id = %d)",
+				comparisonSign, since)
+		}
 	}
 
 	queryStatement := `SELECT post.author, post.created, thread.forum, post.id, 
@@ -219,12 +225,15 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 		queryDB = fmt.Sprintf(queryStatement, sinceDB, orderDB, orderDB)
 	}
 
-	rows, err := db.Query(queryDB, threadId, limit)
-	defer rows.Close()
+	fmt.Println("sort posts", queryDB)
+	fmt.Println("id=", threadId, "limits=", limit)
 
+	rows, err := db.Query(queryDB, threadId, limit)
 	if err != nil {
 		panic(err)
 	}
+
+	defer rows.Close()
 
 	posts := models.Posts{}
 	for rows.Next() {

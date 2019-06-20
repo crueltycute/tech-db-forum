@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/go-openapi/strfmt"
+	"time"
 )
 
 //easyjson:json
@@ -14,7 +14,7 @@ type Post struct {
 	// Дата создания сообщения на форуме.
 	// Read Only: true
 	// Format: date-time
-	Created *strfmt.DateTime `json:"created,omitempty"`
+	Created time.Time `json:"created,omitempty"`
 
 	// Идентификатор форума (slug) данного сообещния.
 	// Read Only: true

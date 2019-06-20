@@ -4,7 +4,6 @@ package models
 
 import (
 	json "encoding/json"
-	strfmt "github.com/go-openapi/strfmt"
 	easyjson "github.com/mailru/easyjson"
 	jlexer "github.com/mailru/easyjson/jlexer"
 	jwriter "github.com/mailru/easyjson/jwriter"
@@ -40,14 +39,8 @@ func easyjson5a72dc82DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 		case "author":
 			out.Author = string(in.String())
 		case "created":
-			if in.IsNull() {
-				in.Skip()
-				out.Created = nil
-			} else {
-				if out.Created == nil {
-					out.Created = new(strfmt.DateTime)
-				}
-				(*out.Created).UnmarshalEasyJSON(in)
+			if data := in.Raw(); in.Ok() {
+				in.AddError((out.Created).UnmarshalJSON(data))
 			}
 		case "forum":
 			out.Forum = string(in.String())
@@ -85,74 +78,39 @@ func easyjson5a72dc82EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jw
 		}
 		out.String(string(in.Author))
 	}
-	if in.Created != nil {
+	if true {
 		const prefix string = ",\"created\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		(*in.Created).MarshalEasyJSON(out)
+		out.RawString(prefix)
+		out.Raw((in.Created).MarshalJSON())
 	}
 	if in.Forum != "" {
 		const prefix string = ",\"forum\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Forum))
 	}
 	if in.ID != 0 {
 		const prefix string = ",\"id\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int64(int64(in.ID))
 	}
 	if in.IsEdited {
 		const prefix string = ",\"isEdited\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Bool(bool(in.IsEdited))
 	}
 	{
 		const prefix string = ",\"message\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Message))
 	}
 	if in.Parent != 0 {
 		const prefix string = ",\"parent\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int64(int64(in.Parent))
 	}
 	if in.Thread != 0 {
 		const prefix string = ",\"thread\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int32(int32(in.Thread))
 	}
 	out.RawByte('}')

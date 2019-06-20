@@ -2,16 +2,27 @@ FROM ubuntu:18.04
 
 MAINTAINER nmerk
 
+ENV TZ=Europe/Moscow
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 ENV PGVER 10
-RUN apt-get -y update && apt-get install -y postgresql-$PGVER
+RUN apt-get -y update
+RUN apt install -y git wget gcc gnupg
+RUN apt-get install -y postgresql-$PGVER
 
-RUN apt install -y golang-1.10 git
-ENV GOROOT /usr/lib/go-1.10
-ENV GOPATH /opt/go
-ENV PATH $GOROOT/bin:$GOPATH/bin:/usr/local/go/bin:$PATH
+RUN wget https://dl.google.com/go/go1.12.linux-amd64.tar.gz
+RUN tar -xvf go1.12.linux-amd64.tar.gz
+RUN mv go /usr/local
 
-WORKDIR $GOPATH/src/github.com/crueltycute/tech-db-forum
-ADD . $GOPATH/src/github.com/crueltycute/tech-db-forum
+ENV GOROOT /usr/local/go
+ENV GOPATH $HOME/go
+ENV PATH $GOPATH/bin:$GOROOT/bin:$PATH
+
+#WORKDIR $GOPATH/src/github.com/crueltycute/tech-db-forum
+#ADD . $GOPATH/src/github.com/crueltycute/tech-db-forum
+
+WORKDIR /server
+COPY . .
 
 USER postgres
 RUN /etc/init.d/postgresql start &&\
@@ -31,5 +42,5 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 #RUN go get ./...
 #CMD service postgresql start && go run ./cmd/forum-server/main.go --scheme=http --port=5000 --host=0.0.0.0
 RUN ls
-RUN go build cmd/main.go
+RUN go build -mod=vendor cmd/main.go
 CMD service postgresql start && ./main

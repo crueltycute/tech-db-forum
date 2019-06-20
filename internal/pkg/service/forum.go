@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -18,18 +17,22 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	_ = f.UnmarshalJSON(body)
 
+	fmt.Println(f)
+
 	db := db2.Connection
 
 	var usersNickname string
 	err := db.QueryRow(queryGetUserNickByNick, f.User).Scan(&usersNickname)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum author not found"})
-			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-			return
-		}
-		panic(err)
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum author not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		return
 	}
 
 	_, err = db.Exec(queryAddForum, &f.Slug, &usersNickname, &f.Title)
@@ -60,7 +63,7 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewForumCreateCreated().WithPayload(createdForum)
-	models.ResponseObject(res, http.StatusOK, createdForum)
+	models.ResponseObject(res, http.StatusCreated, createdForum)
 	return
 }
 
@@ -71,11 +74,13 @@ func ForumGetOne(res http.ResponseWriter, req *http.Request) {
 	forum := &models.Forum{}
 	err := db.QueryRow(queryGetFullForumBySlug, slug).Scan(&forum.Slug, &forum.User, &forum.Title, &forum.Posts, &forum.Threads)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			//return operations.NewForumGetOneNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
-			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-			return
-		}
+		//if err == sql.ErrNoRows {
+		//	//return operations.NewForumGetOneNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
+		//	models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		//	return
+		//}
+		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		return
 	}
 	//return operations.NewForumGetOneOK().WithPayload(forum)
 	models.ResponseObject(res, http.StatusOK, forum)
@@ -91,32 +96,39 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 	since := query.Get("since")
 	desc, _ := strconv.ParseBool(query.Get("desc"))
 
-	order := ""
-	if desc == true {
-		order = "DESC"
+	orderDB := ""
+	if desc {
+		orderDB = "DESC"
 	} else {
-		order = "ASC"
+		orderDB = "ASC"
 	}
 
 	sinceDB := ""
-	if desc == true {
-		since = fmt.Sprintf("and created <= '%s'::timestamptz", since)
-	} else {
-		since = fmt.Sprintf("and created >= '%s'::timestamptz", since)
+	if since != "" {
+		if desc == true {
+			sinceDB = fmt.Sprintf("and created <= '%s'", since)
+		} else {
+			sinceDB = fmt.Sprintf("and created >= '%s'", since)
+		}
 	}
 
 	queryStatement := `SELECT T.id, T.title, T.author, F.slug, T.message, T.slug, T.created
 					   FROM Thread as T JOIN Forum as F on T.forum = F.slug
-					   WHERE F.slug = $1 %s ORDER BY created %s LIMIT $2`
+					   WHERE F.slug = $1 %s ORDER BY created %s`
 
-	queryDB := fmt.Sprintf(queryStatement, sinceDB, order)
+	if limit > 0 {
+		queryStatement = fmt.Sprintf("%s LIMIT %d", queryStatement, limit)
+	}
 
-	rows, err := db.Query(queryDB, slugName, limit)
-	defer rows.Close()
+	queryDB := fmt.Sprintf(queryStatement, sinceDB, orderDB)
+	fmt.Println(queryDB)
 
+	rows, err := db.Query(queryDB, slugName)
 	if err != nil {
 		panic(err)
 	}
+
+	defer rows.Close()
 
 	threads := models.Threads{}
 	for rows.Next() {
@@ -158,18 +170,20 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	}
 
 	order := ""
-	if desc == true {
+	if desc {
 		order = "DESC"
 	} else {
 		order = "ASC"
 	}
 
 	sinceQuery := ""
-	comparisonSign := ">"
-	if desc == true {
-		comparisonSign = "<"
+	if since != "" {
+		comparisonSign := ">"
+		if desc == true {
+			comparisonSign = "<"
+		}
+		since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
 	}
-	since = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
 
 	queryStatement := `SELECT U.nickname, U.fullname, U.about, U.email
 					   FROM ForumUser AS FU
@@ -181,11 +195,10 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	queryDB := fmt.Sprintf(queryStatement, sinceQuery, order)
 
 	rows, err := db.Query(queryDB, slugName, limit)
-	defer rows.Close()
-
 	if err != nil {
 		panic(err)
 	}
+	defer rows.Close()
 
 	users := models.Users{}
 	for rows.Next() {

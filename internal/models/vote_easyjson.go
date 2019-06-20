@@ -66,12 +66,7 @@ func easyjsonE3ecfa40EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jw
 	}
 	{
 		const prefix string = ",\"voice\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int32(int32(in.Voice))
 	}
 	out.RawByte('}')

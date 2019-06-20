@@ -57,7 +57,7 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	if rowIndex == 0 {
 		posts := models.Posts{}
 		//return operations.NewPostsCreateCreated().WithPayload(posts)
-		models.ResponseObject(res, http.StatusOK, posts)
+		models.ResponseObject(res, http.StatusCreated, posts)
 		return
 	}
 
@@ -85,7 +85,7 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	//return operations.NewPostsCreateCreated().WithPayload(postsAdded)
-	models.ResponseObject(res, http.StatusOK, postsAdded)
+	models.ResponseObject(res, http.StatusCreated, postsAdded)
 	return
 }
 

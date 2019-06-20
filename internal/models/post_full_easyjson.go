@@ -4,7 +4,6 @@ package models
 
 import (
 	json "encoding/json"
-	strfmt "github.com/go-openapi/strfmt"
 	easyjson "github.com/mailru/easyjson"
 	jlexer "github.com/mailru/easyjson/jlexer"
 	jwriter "github.com/mailru/easyjson/jwriter"
@@ -45,7 +44,7 @@ func easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 				if out.Author == nil {
 					out.Author = new(User)
 				}
-				easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels1(in, &*out.Author)
+				easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels1(in, out.Author)
 			}
 		case "forum":
 			if in.IsNull() {
@@ -75,7 +74,7 @@ func easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 				if out.Thread == nil {
 					out.Thread = new(Thread)
 				}
-				easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels2(in, &*out.Thread)
+				easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels2(in, out.Thread)
 			}
 		default:
 			in.SkipRecursive()
@@ -179,14 +178,8 @@ func easyjson95e8944cDecodeGithubComCrueltycuteTechDbForumInternalModels2(in *jl
 		case "author":
 			out.Author = string(in.String())
 		case "created":
-			if in.IsNull() {
-				in.Skip()
-				out.Created = nil
-			} else {
-				if out.Created == nil {
-					out.Created = new(strfmt.DateTime)
-				}
-				(*out.Created).UnmarshalEasyJSON(in)
+			if data := in.Raw(); in.Ok() {
+				in.AddError((out.Created).UnmarshalJSON(data))
 			}
 		case "forum":
 			out.Forum = string(in.String())
@@ -224,74 +217,39 @@ func easyjson95e8944cEncodeGithubComCrueltycuteTechDbForumInternalModels2(out *j
 		}
 		out.String(string(in.Author))
 	}
-	if in.Created != nil {
+	if true {
 		const prefix string = ",\"created\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
-		(*in.Created).MarshalEasyJSON(out)
+		out.RawString(prefix)
+		out.Raw((in.Created).MarshalJSON())
 	}
 	if in.Forum != "" {
 		const prefix string = ",\"forum\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Forum))
 	}
 	if in.ID != 0 {
 		const prefix string = ",\"id\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int32(int32(in.ID))
 	}
 	{
 		const prefix string = ",\"message\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Message))
 	}
 	if in.Slug != "" {
 		const prefix string = ",\"slug\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Slug))
 	}
 	{
 		const prefix string = ",\"title\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Title))
 	}
 	if in.Votes != 0 {
 		const prefix string = ",\"votes\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.Int32(int32(in.Votes))
 	}
 	out.RawByte('}')
@@ -359,22 +317,12 @@ func easyjson95e8944cEncodeGithubComCrueltycuteTechDbForumInternalModels1(out *j
 	}
 	{
 		const prefix string = ",\"fullname\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Fullname))
 	}
 	if in.Nickname != "" {
 		const prefix string = ",\"nickname\":"
-		if first {
-			first = false
-			out.RawString(prefix[1:])
-		} else {
-			out.RawString(prefix)
-		}
+		out.RawString(prefix)
 		out.String(string(in.Nickname))
 	}
 	out.RawByte('}')
