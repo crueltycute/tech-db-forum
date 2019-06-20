@@ -4,6 +4,7 @@ import (
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
+	"github.com/jackc/pgx/pgtype"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -108,10 +109,13 @@ func ThreadVote(res http.ResponseWriter, req *http.Request) {
 	}
 
 	votedThread := &models.Thread{}
+	nullableSlug := pgtype.Text{}
 
 	err = db.QueryRow(queryGetThreadAndVoteCountById, &threadId).Scan(&votedThread.ID, &votedThread.Title, &votedThread.Author,
 		&votedThread.Forum, &votedThread.Message, &votedThread.Votes,
-		&votedThread.Slug, &votedThread.Created)
+		&nullableSlug, &votedThread.Created)
+
+	votedThread.Slug = nullableSlug.String
 	if err != nil {
 		panic(err)
 	}
