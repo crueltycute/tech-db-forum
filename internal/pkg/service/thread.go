@@ -5,7 +5,9 @@ import (
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
 	"github.com/jackc/pgx/pgtype"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -126,16 +128,18 @@ func ThreadVote(res http.ResponseWriter, req *http.Request) {
 }
 
 func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
+	id := rand.Intn(10000)
+	logrus.WithField("id", id).Warn(req.URL)
+
 	db := db2.Connection
 	slugOrID := req.URL.Query().Get(":slug_or_id")
 
 	thread := &models.Thread{}
+	nullSlug := pgtype.Text{}
 
 	err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, slugOrID).Scan(&thread.ID, &thread.Title,
-		&thread.Author, &thread.Forum,
-		&thread.Message, &thread.Slug,
-		&thread.Created, &thread.Votes)
-
+		&thread.Author, &thread.Forum, &thread.Message, &nullSlug, &thread.Created, &thread.Votes)
+	thread.Slug = nullSlug.String
 	if err != nil {
 		//if err == sql.ErrNoRows {
 		//	//return operations.NewThreadGetOneNotFound().WithPayload(&internal.Error{Message: "thread does not exist"})
@@ -144,11 +148,13 @@ func ThreadGetOne(res http.ResponseWriter, req *http.Request) {
 		//}
 		//panic(err)
 		models.ErrResponse(res, http.StatusNotFound, "thread does not exist")
+		logrus.WithField("id", id).Warn("thread does not exist")
 		return
 	}
 
 	//return operations.NewThreadGetOneOK().WithPayload(thread)
 	models.ResponseObject(res, http.StatusOK, thread)
+	logrus.WithField("id", id).Warn(thread)
 	return
 }
 
@@ -230,9 +236,6 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 		queryDB = fmt.Sprintf(queryStatement, sinceDB, orderDB, orderDB)
 	}
 
-	fmt.Println("sort posts", queryDB)
-	fmt.Println("id=", threadId, "limits=", limit)
-
 	rows, err := db.Query(queryDB, threadId, limit)
 	if err != nil {
 		panic(err)
@@ -242,7 +245,7 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 
 	posts := models.Posts{}
 	for rows.Next() {
-		post := &models.Post{}
+		post := models.Post{}
 		err := rows.Scan(&post.Author, &post.Created, &post.Forum, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		if err != nil {

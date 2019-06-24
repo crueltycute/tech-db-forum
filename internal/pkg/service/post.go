@@ -5,13 +5,20 @@ import (
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
+	"github.com/jackc/pgx/pgtype"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
+	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 func PostsCreate(res http.ResponseWriter, req *http.Request) {
+	id := rand.Intn(10000)
+	logrus.WithField("id", id).Warn(req.URL)
+
 	db := db2.Connection
 
 	slugOrID := req.URL.Query().Get(":slug_or_id")
@@ -22,6 +29,7 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 	if exists, threadId, forumSlug = threadIsInDB(db, slugOrID); !exists {
 		//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "slug or id not found"})
 		models.ErrResponse(res, http.StatusNotFound, "slug or id not found")
+		log.Println("PostsCreate", "slug or id not found")
 		return
 	}
 
@@ -38,12 +46,14 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 		if inThread := postIsInThread(db, post.Parent, int64(threadId)); post.Parent != 0 && !inThread {
 			//return operations.NewPostsCreateConflict().WithPayload(&internal.Error{Message: "parent is in another thread"})
 			models.ErrResponse(res, http.StatusConflict, "parent is in another thread")
+			log.Println("PostsCreate", "parent is in another thread")
 			return
 		}
 
 		if exists := userIsInDB(db, post.Author); !exists {
 			//return operations.NewPostsCreateNotFound().WithPayload(&internal.Error{Message: "author not found"})
 			models.ErrResponse(res, http.StatusNotFound, "author not found")
+			log.Println("PostsCreate", "author not found")
 			return
 		}
 
@@ -59,22 +69,24 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 		posts := models.Posts{}
 		//return operations.NewPostsCreateCreated().WithPayload(posts)
 		models.ResponseObject(res, http.StatusCreated, posts)
+		log.Println("PostsCreate", "rowIndex == 0", "len posts", len(posts))
 		return
 	}
 
 	queryStatement = queryStatement[0 : len(queryStatement)-1]
 	queryStatement += " RETURNING author, created, id, message, thread, coalesce(parent, 0)"
 
+	logrus.WithField("id", id).Info(queryStatement)
+
 	postsAdded := models.Posts{}
 	rows, err := db.Query(queryStatement, vals...)
-	defer rows.Close()
-
 	if err != nil {
 		panic(err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		post := &models.Post{}
+		post := models.Post{}
 		err := rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		if err != nil {
@@ -87,11 +99,11 @@ func PostsCreate(res http.ResponseWriter, req *http.Request) {
 
 	//return operations.NewPostsCreateCreated().WithPayload(postsAdded)
 	models.ResponseObject(res, http.StatusCreated, postsAdded)
+	logrus.WithField("id", id).Println("PostsCreate", "OK", "len = ", len(postsAdded))
 	return
 }
 
 func PostGetOne(res http.ResponseWriter, req *http.Request) {
-	fmt.Println(req.URL)
 	db := db2.Connection
 
 	ID := req.URL.Query().Get(":id")
@@ -100,8 +112,7 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 
 	post := &models.Post{}
 	err := db.QueryRow(queryGetPostById, ID).Scan(&post.Author, &post.Created,
-		&post.Forum, &post.ID, &post.Message,
-		&post.Thread, &post.IsEdited)
+		&post.Forum, &post.ID, &post.Message, &post.Thread, &post.IsEdited)
 
 	if err != nil {
 		//if err == sql.ErrNoRows {
@@ -146,13 +157,14 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 			fullPost.Forum = forum
 		case "thread":
 			thread := &models.Thread{}
+			nullSlug := pgtype.Text{}
 
 			fmt.Println(int64(post.Thread), strconv.Itoa(int(post.Thread)))
 			//strconv.Itoa(post.Thread)
 
 			err := db.QueryRow(queryGetThreadAndVoteCountByIdOrSlug, strconv.Itoa(int(post.Thread))).Scan(&thread.ID, &thread.Title,
-				&thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
-
+				&thread.Author, &thread.Forum, &thread.Message, &nullSlug, &thread.Created, &thread.Votes)
+			thread.Slug = nullSlug.String
 			if err != nil {
 				if err != sql.ErrNoRows {
 					panic(err)
@@ -175,8 +187,7 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 
 	post := &models.Post{}
 	err := db.QueryRow(queryGetPostById, ID).Scan(&post.Author, &post.Created,
-		&post.Forum, &post.ID, &post.Message,
-		&post.Thread, &post.IsEdited)
+		&post.Forum, &post.ID, &post.Message, &post.Thread, &post.IsEdited)
 
 	if err != nil {
 		//if err == sql.ErrNoRows {

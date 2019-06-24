@@ -2,6 +2,8 @@ package service
 
 import (
 	"fmt"
+	"github.com/jackc/pgx/pgtype"
+	"log"
 	"strconv"
 
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
@@ -16,8 +18,6 @@ func ForumCreate(res http.ResponseWriter, req *http.Request) {
 	body, _ := ioutil.ReadAll(req.Body)
 	defer req.Body.Close()
 	_ = f.UnmarshalJSON(body)
-
-	fmt.Println(f)
 
 	db := db2.Connection
 
@@ -80,6 +80,7 @@ func ForumGetOne(res http.ResponseWriter, req *http.Request) {
 		//	return
 		//}
 		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+		log.Println("ForumGetOne", err)
 		return
 	}
 	//return operations.NewForumGetOneOK().WithPayload(forum)
@@ -121,7 +122,6 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 	}
 
 	queryDB := fmt.Sprintf(queryStatement, sinceDB, orderDB)
-	fmt.Println(queryDB)
 
 	rows, err := db.Query(queryDB, slugName)
 	if err != nil {
@@ -131,10 +131,11 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 	defer rows.Close()
 
 	threads := models.Threads{}
+	nullSlug := pgtype.Text{}
 	for rows.Next() {
 		thread := &models.Thread{}
-		err = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created)
-
+		err = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &nullSlug, &thread.Created)
+		thread.Slug = nullSlug.String
 		if err != nil {
 			panic(err)
 		}
@@ -162,8 +163,6 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	limit, _ := strconv.Atoi(query.Get("limit"))
 	since := query.Get("since")
 	desc, _ := strconv.ParseBool(query.Get("desc"))
-
-	fmt.Println(limit, since, desc)
 
 	if contains := forumIsInDB(db, &slugName); !contains {
 		//return operations.NewForumGetUsersNotFound().WithPayload(&internal.Error{Message: "forum not found"})
@@ -198,8 +197,6 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	}
 
 	queryDB := fmt.Sprintf(queryStatement, sinceQuery, order)
-
-	fmt.Println(queryDB, slugName, limit)
 
 	rows, err := db.Query(queryDB, slugName)
 	if err != nil {

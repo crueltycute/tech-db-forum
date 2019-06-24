@@ -26,7 +26,7 @@ func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 		in.Delim('[')
 		if *out == nil {
 			if !in.IsDelim(']') {
-				*out = make(Posts, 0, 8)
+				*out = make(Posts, 0, 1)
 			} else {
 				*out = Posts{}
 			}
@@ -34,16 +34,8 @@ func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 			*out = (*out)[:0]
 		}
 		for !in.IsDelim(']') {
-			var v1 *Post
-			if in.IsNull() {
-				in.Skip()
-				v1 = nil
-			} else {
-				if v1 == nil {
-					v1 = new(Post)
-				}
-				(*v1).UnmarshalEasyJSON(in)
-			}
+			var v1 Post
+			(v1).UnmarshalEasyJSON(in)
 			*out = append(*out, v1)
 			in.WantComma()
 		}
@@ -62,11 +54,7 @@ func easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jw
 			if v2 > 0 {
 				out.RawByte(',')
 			}
-			if v3 == nil {
-				out.RawString("null")
-			} else {
-				(*v3).MarshalEasyJSON(out)
-			}
+			(v3).MarshalEasyJSON(out)
 		}
 		out.RawByte(']')
 	}
