@@ -24,7 +24,7 @@ func Status(res http.ResponseWriter, req *http.Request) {
 
 	status := &models.Status{}
 	row := db.QueryRow(queryGetStatus)
-	_ := row.Scan(&status.User, &status.Forum, &status.Thread, &status.Post)
+	_ = row.Scan(&status.User, &status.Forum, &status.Thread, &status.Post)
 	//if err != nil {
 	//	panic(err)
 	//}

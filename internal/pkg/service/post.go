@@ -86,7 +86,7 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 	for rows.Next() {
 		post := &models.Post{}
 
-		_ := rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
+		_ = rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		//if err != nil {
 		//	tx.Rollback()

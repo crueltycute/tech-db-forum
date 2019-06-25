@@ -48,7 +48,7 @@ func UsersCreate(res http.ResponseWriter, req *http.Request) {
 		users := models.Users{}
 		for rows.Next() {
 			user := &models.User{}
-			_ := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+			_ = rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
 			users = append(users, user)
 		}
 

@@ -130,7 +130,7 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 	for rows.Next() {
 		thread := &models.Thread{}
 
-		_ := rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
+		_ = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
 
 		//if err != nil {
 		//	panic(err)
@@ -203,7 +203,7 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	users := models.Users{}
 	for rows.Next() {
 		user := &models.User{}
-		_ := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+		_ = rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
 		//if err != nil {
 		//	panic(err)
 		//}

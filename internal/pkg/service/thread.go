@@ -65,7 +65,7 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 		//}
 		//panic(err)
 		existingThread := &models.Thread{}
-		_ := db.QueryRow(queryGetThreadBySlug, thread.Slug).Scan(&existingThread.ID, &existingThread.Title, &existingThread.Author, &existingThread.Forum, &existingThread.Message, &existingThread.Slug, &existingThread.Created)
+		_ = db.QueryRow(queryGetThreadBySlug, thread.Slug).Scan(&existingThread.ID, &existingThread.Title, &existingThread.Author, &existingThread.Forum, &existingThread.Message, &existingThread.Slug, &existingThread.Created)
 
 		models.ResponseObject(res, http.StatusConflict, existingThread)
 		return
@@ -252,7 +252,7 @@ func ThreadGetPosts(res http.ResponseWriter, req *http.Request) {
 	for rows.Next() {
 		post := &models.Post{}
 
-		_ := rows.Scan(&post.Author, &post.Created, &post.Forum, &post.ID, &post.Message, &post.Thread, &post.Parent)
+		_ = rows.Scan(&post.Author, &post.Created, &post.Forum, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
 		//if err != nil {
 		//	panic(err)
