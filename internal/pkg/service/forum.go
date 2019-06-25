@@ -2,8 +2,7 @@ package service
 
 import (
 	"fmt"
-	"github.com/jackc/pgx/pgtype"
-	"log"
+	"github.com/jackc/pgx"
 	"strconv"
 
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
@@ -14,56 +13,46 @@ import (
 )
 
 func ForumCreate(res http.ResponseWriter, req *http.Request) {
-	f := models.Forum{}
+	forum := models.Forum{}
 	body, _ := ioutil.ReadAll(req.Body)
 	defer req.Body.Close()
-	_ = f.UnmarshalJSON(body)
+	_ = forum.UnmarshalJSON(body)
 
 	db := db2.Connection
 
-	var usersNickname string
-	err := db.QueryRow(queryGetUserNickByNick, f.User).Scan(&usersNickname)
+	var nickname string
+	err := db.QueryRow(queryGetUserNickByNick, forum.User).Scan(&nickname)
 
 	if err != nil {
-		//if err == sql.ErrNoRows {
-		//	//return operations.NewForumCreateNotFound().WithPayload(&models.Error{Message: "forum author not found"})
-		//	models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-		//	return
-		//}
-		//panic(err)
-		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-		return
+		if err == pgx.ErrNoRows {
+			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+			return
+		}
+		panic(err)
 	}
 
-	_, err = db.Exec(queryAddForum, &f.Slug, &usersNickname, &f.Title)
-
+	_, err = db.Exec(queryAddForum, forum.Title, nickname, forum.Slug)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			existingForum := &models.Forum{}
-			err := db.QueryRow(queryGetForumBySlug, &f.Slug).Scan(&existingForum.Slug, &existingForum.User, &existingForum.Title)
+			err = db.QueryRow(queryGetForumBySlug, forum.Slug).Scan(&existingForum.Title, &existingForum.User, &existingForum.Slug)
 
-			if err != nil {
-				panic(err)
-			}
+			existingForum.User = nickname
 
-			//return operations.NewForumCreateConflict().WithPayload(existingForum)
 			models.ResponseObject(res, http.StatusConflict, existingForum)
 			return
 		}
-		//return operations.NewForumCreateNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
-		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-		return
+		panic(err)
 	}
 
-	createdForum := &models.Forum{}
-	err = db.QueryRow(queryGetForumBySlug, &f.Slug).Scan(&createdForum.Slug, &createdForum.User, &createdForum.Title)
+	newForum := &models.Forum{}
+	err = db.QueryRow(queryGetForumBySlug, forum.Slug).Scan(&newForum.Title, &newForum.User, &newForum.Slug)
 
 	if err != nil {
 		panic(err)
 	}
 
-	//return operations.NewForumCreateCreated().WithPayload(createdForum)
-	models.ResponseObject(res, http.StatusCreated, createdForum)
+	models.ResponseObject(res, http.StatusCreated, newForum)
 	return
 }
 
@@ -71,19 +60,15 @@ func ForumGetOne(res http.ResponseWriter, req *http.Request) {
 	slug := req.URL.Query().Get(":slug")
 	db := db2.Connection
 
-	forum := &models.Forum{}
-	err := db.QueryRow(queryGetFullForumBySlug, slug).Scan(&forum.Slug, &forum.User, &forum.Title, &forum.Posts, &forum.Threads)
+	forum, err := getForumBySlug(db, slug)
 	if err != nil {
-		//if err == sql.ErrNoRows {
-		//	//return operations.NewForumGetOneNotFound().WithPayload(&internal.Error{Message: "forum author not found"})
-		//	models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-		//	return
-		//}
-		models.ErrResponse(res, http.StatusNotFound, "forum author not found")
-		log.Println("ForumGetOne", err)
-		return
+		if err == pgx.ErrNoRows {
+			models.ErrResponse(res, http.StatusNotFound, "forum author not found")
+			return
+		}
+		panic(err)
 	}
-	//return operations.NewForumGetOneOK().WithPayload(forum)
+
 	models.ResponseObject(res, http.StatusOK, forum)
 	return
 }
@@ -97,45 +82,44 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 	since := query.Get("since")
 	desc, _ := strconv.ParseBool(query.Get("desc"))
 
-	orderDB := ""
-	if desc {
-		orderDB = "DESC"
-	} else {
-		orderDB = "ASC"
+	if limit == 0 {
+		limit = 100
 	}
 
-	sinceDB := ""
+	order := "ASC"
+	if desc {
+		order = "DESC"
+	}
+
+	sinceStr := ""
 	if since != "" {
-		if desc == true {
-			sinceDB = fmt.Sprintf("and created <= '%s'", since)
+		if desc {
+			sinceStr = fmt.Sprintf("and created <= '%s'::timestamptz", since)
 		} else {
-			sinceDB = fmt.Sprintf("and created >= '%s'", since)
+			sinceStr = fmt.Sprintf("and created >= '%s'::timestamptz", since)
 		}
 	}
 
-	queryStatement := `SELECT T.id, T.title, T.author, F.slug, T.message, T.slug, T.created
-					   FROM Thread as T JOIN Forum as F on T.forum = F.slug
-					   WHERE F.slug = $1 %s ORDER BY created %s`
+	queryStatement := fmt.Sprintf(`
+		SELECT id, title, author, forum, message, coalesce(slug, ''), created, votes
+		FROM thread
+		WHERE forum = $1 %s
+		ORDER BY created %s
+		LIMIT $2`, sinceStr, order)
 
-	if limit > 0 {
-		queryStatement = fmt.Sprintf("%s LIMIT %d", queryStatement, limit)
-	}
+	rows, err := db.Query(queryStatement, slugName, limit)
+	defer rows.Close();
 
-	queryDB := fmt.Sprintf(queryStatement, sinceDB, orderDB)
-
-	rows, err := db.Query(queryDB, slugName)
 	if err != nil {
 		panic(err)
 	}
 
-	defer rows.Close()
-
 	threads := models.Threads{}
-	nullSlug := pgtype.Text{}
 	for rows.Next() {
 		thread := &models.Thread{}
-		err = rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &nullSlug, &thread.Created)
-		thread.Slug = nullSlug.String
+
+		err := rows.Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum, &thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
+
 		if err != nil {
 			panic(err)
 		}
@@ -143,13 +127,15 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 		threads = append(threads, thread)
 	}
 
-	if contains := forumIsInDB(db, &slugName); !contains && len(threads) == 0 {
-		//return operations.NewForumGetThreadsNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+	if err = rows.Err(); err != nil {
+		panic(err)
+	}
+
+	if len(threads) == 0 && !forumExists(db, slugName) {
 		models.ErrResponse(res, http.StatusNotFound, "forum not found")
 		return
 	}
 
-	//return operations.NewForumGetThreadsOK().WithPayload(threads)
 	models.ResponseObject(res, http.StatusOK, threads)
 	return
 }
@@ -164,45 +150,42 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 	since := query.Get("since")
 	desc, _ := strconv.ParseBool(query.Get("desc"))
 
-	if contains := forumIsInDB(db, &slugName); !contains {
-		//return operations.NewForumGetUsersNotFound().WithPayload(&internal.Error{Message: "forum not found"})
+	if exists := forumExists(db, slugName); !exists {
 		models.ErrResponse(res, http.StatusNotFound, "forum not found")
 		return
 	}
 
-	order := ""
+	if limit == 0 {
+		limit = 10000
+	}
+
+	order := "ASC"
 	if desc {
 		order = "DESC"
-	} else {
-		order = "ASC"
 	}
 
-	sinceQuery := ""
+	sinceStr := ""
 	if since != "" {
 		comparisonSign := ">"
-		if desc == true {
+		if desc {
 			comparisonSign = "<"
 		}
-		sinceQuery = fmt.Sprintf("and FU.nickname %s '%s'", comparisonSign, since)
+		sinceStr = fmt.Sprintf("and ff.nickname %s '%s'", comparisonSign, since)
 	}
+	queryStatement := fmt.Sprintf(`
+		SELECT f.nickname, f.fullname, f.about, f.email
+		FROM ForumUser AS ff
+		JOIN Users as f ON ff.nickname = f.nickname
+		WHERE ff.slug = $1 %s
+		ORDER BY f.nickname %s
+		LIMIT $2`, sinceStr, order)
 
-	queryStatement := `SELECT U.nickname, U.fullname, U.about, U.email
-					   FROM ForumUser AS FU
-					   JOIN Users as U ON FU.nickname = U.nickname
-					   WHERE FU.slug = $1 %s
-					   ORDER BY U.nickname %s`
+	rows, err := db.Query(queryStatement, slugName, limit)
+	defer rows.Close()
 
-	if limit > 0 {
-		queryStatement = fmt.Sprintf("%s LIMIT %d", queryStatement, limit)
-	}
-
-	queryDB := fmt.Sprintf(queryStatement, sinceQuery, order)
-
-	rows, err := db.Query(queryDB, slugName)
 	if err != nil {
 		panic(err)
 	}
-	defer rows.Close()
 
 	users := models.Users{}
 	for rows.Next() {
@@ -214,7 +197,6 @@ func ForumGetUsers(res http.ResponseWriter, req *http.Request) {
 		users = append(users, user)
 	}
 
-	//return operations.NewForumGetUsersOK().WithPayload(users)
 	models.ResponseObject(res, http.StatusOK, users)
 	return
 }

@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
-CREATE TABLE Forumer
+CREATE TABLE Users
 (
     nickname CITEXT UNIQUE NOT NULL PRIMARY KEY,
     fullname VARCHAR(255)  NOT NULL,
@@ -8,14 +8,14 @@ CREATE TABLE Forumer
     email    CITEXT UNIQUE NOT NULL
 );
 
-CREATE INDEX IF not exists forumer_nickname ON Forumer (nickname);
+CREATE INDEX IF not exists users_nickname ON Users (nickname);
 
 -- ---------------------------------------------------------------
 
 CREATE TABLE Forum
 (
     title   CITEXT                               NOT NULL,
-    forumer CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    forumUser CITEXT REFERENCES Users (nickname) NOT NULL,
     slug    CITEXT UNIQUE                        NOT NULL PRIMARY KEY,
     posts   BIGINT DEFAULT 0,
     threads BIGINT DEFAULT 0
@@ -25,15 +25,15 @@ CREATE INDEX IF not exists forum_slug ON Forum (slug);
 
 -- ---------------------------------------------------------------
 
-CREATE TABLE ForumForumer
+CREATE TABLE ForumUser
 (
     slug     CITEXT,
     nickname CITEXT COLLATE "POSIX",
     CONSTRAINT unique_slug_nickname UNIQUE (slug, nickname)
 );
 
-CREATE INDEX forumforumer_slug_idx on ForumForumer (slug);
-CREATE INDEX forumforumer_nickname_idx on ForumForumer (nickname);
+CREATE INDEX forumUser_slug_idx on ForumUser (slug);
+CREATE INDEX forumUser_nickname_idx on ForumUser (nickname);
 
 -- ---------------------------------------------------------------
 
@@ -95,7 +95,7 @@ CREATE TABLE Thread
 (
     id      BIGSERIAL PRIMARY KEY,
     title   VARCHAR(255)                         NOT NULL,
-    author  CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    author  CITEXT REFERENCES Users (nickname) NOT NULL,
     forum   CITEXT REFERENCES Forum (slug),
     message TEXT                                 NOT NULL,
     slug    CITEXT UNIQUE                        NULL,
@@ -123,21 +123,21 @@ CREATE TRIGGER update_thread_count_trigger
     FOR EACH ROW
 EXECUTE PROCEDURE updatethreadcount();
 
-CREATE OR REPLACE FUNCTION insertforumforumer() RETURNS TRIGGER AS
+CREATE OR REPLACE FUNCTION insertforumuser() RETURNS TRIGGER AS
 $body$
 BEGIN
-    INSERT INTO ForumForumer(slug, nickname)
+    INSERT INTO ForumUser(slug, nickname)
     VALUES (NEW.forum, NEW.author)
     ON CONFLICT DO NOTHING;
     RETURN NEW;
 END;
 $body$ LANGUAGE plpgsql;
 
-CREATE TRIGGER insert_forum_forumer_trigger
+CREATE TRIGGER insert_forum_user_trigger
     AFTER INSERT
     ON Thread
     FOR EACH ROW
-EXECUTE PROCEDURE insertforumforumer();
+EXECUTE PROCEDURE insertforumuser();
 
 -- ---------------------------------------------------------------
 
@@ -145,7 +145,7 @@ CREATE TABLE Vote
 (
     ID       BIGSERIAL PRIMARY KEY,
     threadID BIGINT                               NOT NULL,
-    nickname CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    nickname CITEXT REFERENCES Users (nickname) NOT NULL,
     voice    SMALLINT                             NOT NULL,
     CONSTRAINT unique_vote UNIQUE (threadID, nickname)
 );

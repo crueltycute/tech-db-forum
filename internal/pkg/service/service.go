@@ -9,10 +9,12 @@ import (
 func Clear(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
 
-	db.QueryRow(queryClearDB)
-	//return operations.NewClearOK()
+	_, err := db.Exec(queryClearDB)
 
-	// по логике не подходит, но мне влом делать новый тип респонсов
+	if err != nil {
+		panic(err)
+	}
+
 	models.ErrResponse(res, http.StatusOK, "ok")
 	return
 }
@@ -21,11 +23,12 @@ func Status(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
 
 	status := &models.Status{}
-	err := db.QueryRow(queryGetStatus).Scan(&status.User, &status.Forum, &status.Thread, &status.Post)
+	row := db.QueryRow(queryGetStatus)
+	err := row.Scan(&status.User, &status.Forum, &status.Thread, &status.Post)
 	if err != nil {
 		panic(err)
 	}
-	//return operations.NewStatusOK().WithPayload(status)
+
 	models.ResponseObject(res, http.StatusOK, status)
 	return
 }

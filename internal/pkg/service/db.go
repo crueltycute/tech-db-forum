@@ -1,8 +1,6 @@
-package query
+package service
 
-import (
-	"github.com/jackc/pgx"
-)
+import "github.com/jackc/pgx"
 
 type txOrDb interface {
 	QueryRow(string, ...interface{}) *pgx.Row

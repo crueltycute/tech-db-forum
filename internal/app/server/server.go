@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/bmizerany/pat"
-	"github.com/crueltycute/tech-db-forum/internal/pkg/query"
+	"github.com/crueltycute/tech-db-forum/internal/pkg/service"
 	"net/http"
 )
 
@@ -19,27 +19,27 @@ func NewForumServer(port string) *ForumServer {
 }
 
 func (fs *ForumServer) EnsureRoutes() {
-	fs.router.Post("/api/forum/create", http.HandlerFunc(query.ForumCreate))
-	fs.router.Get("/api/forum/:slug/details", http.HandlerFunc(query.ForumDetails))
-	fs.router.Post("/api/forum/:slug/create", http.HandlerFunc(query.ThreadCreate))
-	fs.router.Get("/api/forum/:slug/users", http.HandlerFunc(query.ForumForumers))
-	fs.router.Get("/api/forum/:slug/threads", http.HandlerFunc(query.ForumGetThreads))
+	fs.router.Post("/api/forum/create", http.HandlerFunc(service.ForumCreate))
+	fs.router.Get("/api/forum/:slug/details", http.HandlerFunc(service.ForumGetOne))
+	fs.router.Post("/api/forum/:slug/create", http.HandlerFunc(service.ThreadCreate))
+	fs.router.Get("/api/forum/:slug/users", http.HandlerFunc(service.ForumGetUsers))
+	fs.router.Get("/api/forum/:slug/threads", http.HandlerFunc(service.ForumGetThreads))
 
-	fs.router.Get("/api/post/:id/details", http.HandlerFunc(query.PostDetails))
-	fs.router.Post("/api/post/:id/details", http.HandlerFunc(query.PostUpdate))
+	fs.router.Get("/api/post/:id/details", http.HandlerFunc(service.PostGetOne))
+	fs.router.Post("/api/post/:id/details", http.HandlerFunc(service.PostUpdate))
 
-	fs.router.Post("/api/service/clear", http.HandlerFunc(query.Clear))
-	fs.router.Get("/api/service/status", http.HandlerFunc(query.Status))
+	fs.router.Post("/api/service/clear", http.HandlerFunc(service.Clear))
+	fs.router.Get("/api/service/status", http.HandlerFunc(service.Status))
 
-	fs.router.Post("/api/thread/:slug_or_id/create", http.HandlerFunc(query.PostCreate))
-	fs.router.Get("/api/thread/:slug_or_id/details", http.HandlerFunc(query.ThreadDetails))
-	fs.router.Post("/api/thread/:slug_or_id/details", http.HandlerFunc(query.ThreadUpdate))
-	fs.router.Get("/api/thread/:slug_or_id/posts", http.HandlerFunc(query.ThreadGetPosts))
-	fs.router.Post("/api/thread/:slug_or_id/vote", http.HandlerFunc(query.ThreadVote))
+	fs.router.Post("/api/thread/:slug_or_id/create", http.HandlerFunc(service.PostCreate))
+	fs.router.Get("/api/thread/:slug_or_id/details", http.HandlerFunc(service.ThreadGetOne))
+	fs.router.Post("/api/thread/:slug_or_id/details", http.HandlerFunc(service.ThreadUpdate))
+	fs.router.Get("/api/thread/:slug_or_id/posts", http.HandlerFunc(service.ThreadGetPosts))
+	fs.router.Post("/api/thread/:slug_or_id/vote", http.HandlerFunc(service.ThreadVote))
 
-	fs.router.Post("/api/user/:nickname/create", http.HandlerFunc(query.ForumerCreate))
-	fs.router.Get("/api/user/:nickname/profile", http.HandlerFunc(query.ForumerProfile))
-	fs.router.Post("/api/user/:nickname/profile", http.HandlerFunc(query.ForumerUpdate))
+	fs.router.Post("/api/user/:nickname/create", http.HandlerFunc(service.UsersCreate))
+	fs.router.Get("/api/user/:nickname/profile", http.HandlerFunc(service.UsersGetOne))
+	fs.router.Post("/api/user/:nickname/profile", http.HandlerFunc(service.UsersUpdate))
 }
 
 func (fs *ForumServer) Run() error {
