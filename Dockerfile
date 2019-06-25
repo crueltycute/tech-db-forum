@@ -47,8 +47,6 @@ RUN echo "synchronous_commit = off" >> /etc/postgresql/$PGVER/main/postgresql.co
 RUN echo "random_page_cost = 1.0" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "full_page_writes = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
 RUN echo "fsync = off" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "random_page_cost = 0.1" >> /etc/postgresql/$PGVER/main/postgresql.conf
-RUN echo "seq_page_cost = 4.0" >> /etc/postgresql/$PGVER/main/postgresql.conf
 
 EXPOSE 5432
 VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
