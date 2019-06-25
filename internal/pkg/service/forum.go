@@ -108,7 +108,7 @@ func ForumGetThreads(res http.ResponseWriter, req *http.Request) {
 		LIMIT $2`, sinceStr, order)
 
 	rows, err := db.Query(queryStatement, slugName, limit)
-	defer rows.Close();
+	defer rows.Close()
 
 	if err != nil {
 		panic(err)

@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-
 func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	db := db2.Connection
 
@@ -48,7 +47,7 @@ func ThreadCreate(res http.ResponseWriter, req *http.Request) {
 	lastInsertId := 0
 
 	err = db.QueryRow(queryAddThread, thread.Title, nickname,
-					  slug, thread.Message, thread.Slug, thread.Created).Scan(&lastInsertId)
+		slug, thread.Message, thread.Slug, thread.Created).Scan(&lastInsertId)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
