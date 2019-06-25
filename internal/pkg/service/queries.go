@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/crueltycute/tech-db-forum/internal/models"
-	"github.com/jackc/pgx"
 	"strconv"
 )
 
@@ -94,10 +93,11 @@ func forumExists(db dbOrConn, slug string) bool {
 	err := db.QueryRow("SELECT title, forumUser, slug FROM Forum WHERE slug = $1", slug).Scan(&forum.Title, &forum.User, &forum.Slug)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 
 	return true
@@ -109,10 +109,11 @@ func userExists(db txOrDb, nickname string) bool {
 	err := db.QueryRow("SELECT nickname FROM Users WHERE nickname = $1", nickname).Scan(&user.Nickname)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 	return true
 }
@@ -124,10 +125,11 @@ func postExistsInThread(db txOrDb, postId, threadId int64) bool {
 		WHERE id = $1 and thread = $2`, postId, threadId).Scan(&id)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return false
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	return false
+		//}
+		//panic(err)
+		return false
 	}
 
 	return id == postId
@@ -141,6 +143,8 @@ func getForumBySlug(db dbOrConn, slug string) (*models.Forum, error) {
 		SELECT title, forumUser, slug, posts, threads
 		FROM Forum WHERE slug = $1`, slug).Scan(&forum.Title, &forum.User, &forum.Slug, &forum.Posts, &forum.Threads)
 
+	//go logrus.Info("SELECT title, forumUser, slug, posts, threads FROM Forum WHERE slug =", slug)
+
 	return forum, err
 }
 
@@ -151,6 +155,8 @@ func getUserByNickname(db dbOrConn, nickname string) (*models.User, error) {
 		SELECT nickname, fullname, about, email
 		FROM Users
 		WHERE nickname = $1`, nickname).Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+
+	//go logrus.Info("SELECT nickname, fullname, about, email FROM Users WHERE nickname =", nickname)
 
 	return user, err
 }
@@ -171,6 +177,8 @@ func getThreadById(db txOrDb, id int) (*models.Thread, error) {
 		FROM thread WHERE id = $1`, id).Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum,
 		&thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
 
+	//go logrus.Info("SELECT id, title, author, forum, message, coalesce(slug, ''), created, votes FROM thread WHERE id =", id)
+
 	return thread, err
 }
 
@@ -181,6 +189,8 @@ func getThreadBySlug(db txOrDb, slug string) (*models.Thread, error) {
 		SELECT id, title, author, forum, message, coalesce(slug, ''), created, votes
 		FROM thread WHERE slug = $1`, slug).Scan(&thread.ID, &thread.Title, &thread.Author, &thread.Forum,
 		&thread.Message, &thread.Slug, &thread.Created, &thread.Votes)
+
+	//go logrus.Info("SELECT id, title, author, forum, message, coalesce(slug, ''), created, votes FROM thread WHERE slug =", slug)
 
 	return thread, err
 }
