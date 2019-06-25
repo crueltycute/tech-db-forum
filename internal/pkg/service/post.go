@@ -4,7 +4,6 @@ import (
 	"fmt"
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
-	"github.com/jackc/pgx"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -16,20 +15,24 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 
 	slugOrID := req.URL.Query().Get(":slug_or_id")
 
-	tx, err := db.Begin()
-	if err != nil {
-		panic(err)
-	}
+	tx, _ := db.Begin()
+	//if err != nil {
+	//	panic(err)
+	//}
 
+	var err error
 	var thread *models.Thread
 	if thread, err = getThreadBySlugOrId(tx, slugOrID); err != nil {
-		if err == pgx.ErrNoRows {
-			tx.Rollback()
-			models.ErrResponse(res, http.StatusNotFound, "slug or id not found")
-			return
-		}
+		//if err == pgx.ErrNoRows {
+		//	tx.Rollback()
+		//	models.ErrResponse(res, http.StatusNotFound, "slug or id not found")
+		//	return
+		//}
+		//tx.Rollback()
+		//panic(err)
 		tx.Rollback()
-		panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "slug or id not found")
+		return
 	}
 
 	postsToCreate := models.Posts{}
@@ -47,12 +50,12 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 			b.WriteString(",")
 		}
 		if inThread := postExistsInThread(tx, post.Parent, int64(thread.ID)); post.Parent != 0 && !inThread {
-			tx.Rollback()
+			_ = tx.Rollback()
 			models.ErrResponse(res, http.StatusConflict, "parent is in another thread")
 			return
 		}
 		if exists := userExists(tx, post.Author); !exists {
-			tx.Rollback()
+			_ = tx.Rollback()
 			models.ErrResponse(res, http.StatusNotFound, "author not found")
 			return
 		}
@@ -62,9 +65,10 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 	}
 	postsAdded := models.Posts{}
 	if rowIndex == 0 {
-		if err := tx.Commit(); err != nil {
-			panic(err)
-		}
+		//if err := tx.Commit(); err != nil {
+		//	panic(err)
+		//}
+		_ = tx.Commit()
 
 		models.ResponseObject(res, http.StatusCreated, postsAdded)
 		return
@@ -72,39 +76,39 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 
 	b.WriteString(" RETURNING author, created, id, message, thread, coalesce(parent, 0)")
 
-	rows, err := tx.Query(b.String(), vals...)
+	rows, _ := tx.Query(b.String(), vals...)
 
-	if err != nil {
-		tx.Rollback()
-		panic(err)
-	}
+	//if err != nil {
+	//	_ = tx.Rollback()
+	//	panic(err)
+	//}
 
 	for rows.Next() {
 		post := &models.Post{}
 
-		err := rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
+		_ := rows.Scan(&post.Author, &post.Created, &post.ID, &post.Message, &post.Thread, &post.Parent)
 
-		if err != nil {
-			tx.Rollback()
-			panic(err)
-		}
+		//if err != nil {
+		//	tx.Rollback()
+		//	panic(err)
+		//}
 
 		post.Forum = thread.Forum
 		postsAdded = append(postsAdded, post)
 	}
 
-	if err := rows.Err(); err != nil {
-		tx.Rollback()
-		panic(err)
-	}
+	//if err := rows.Err(); err != nil {
+	//	tx.Rollback()
+	//	panic(err)
+	//}
 	rows.Close()
 
 	if len(postsAdded) > 0 {
-		err = increasePostsCount(tx, postsAdded[0].Forum, len(postsAdded))
-		if err != nil {
-			tx.Rollback()
-			panic(err)
-		}
+		_ = increasePostsCount(tx, postsAdded[0].Forum, len(postsAdded))
+		//if err != nil {
+		//	tx.Rollback()
+		//	panic(err)
+		//}
 	}
 
 	vals = []interface{}{}
@@ -119,15 +123,16 @@ func PostCreate(res http.ResponseWriter, req *http.Request) {
 	}
 	b.WriteString("ON CONFLICT DO NOTHING")
 
-	_, err = tx.Exec(b.String(), vals...)
-	if err != nil {
-		tx.Rollback()
-		panic(err)
-	}
+	_, _ = tx.Exec(b.String(), vals...)
+	//if err != nil {
+	//	tx.Rollback()
+	//	panic(err)
+	//}
 
-	if err := tx.Commit(); err != nil {
-		panic(err)
-	}
+	//if err := tx.Commit(); err != nil {
+	//	panic(err)
+	//}
+	_ = tx.Commit()
 
 	models.ResponseObject(res, http.StatusCreated, postsAdded)
 	return
@@ -142,39 +147,41 @@ func PostGetOne(res http.ResponseWriter, req *http.Request) {
 
 	post, err := getPostById(db, int64(ID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			models.ErrResponse(res, http.StatusNotFound, "post not found")
-			return
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	models.ErrResponse(res, http.StatusNotFound, "post not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "post not found")
+		return
 	}
 	fullPost := &models.PostFull{Post: post}
 
 	for _, relatedStr := range related {
 		switch relatedStr {
 		case "user":
-			user, err := getUserByNickname(db, post.Author)
-			if err != nil {
-				if err != pgx.ErrNoRows {
-					panic(err)
-				}
-			}
+			user, _ := getUserByNickname(db, post.Author)
+			//if err != nil {
+			//	if err != pgx.ErrNoRows {
+			//		panic(err)
+			//	}
+			//}
 			fullPost.Author = user
 		case "forum":
-			forum, err := getForumBySlug(db, post.Forum)
-			if err != nil {
-				if err != pgx.ErrNoRows {
-					panic(err)
-				}
-			}
+			forum, _ := getForumBySlug(db, post.Forum)
+			//if err != nil {
+			//	if err != pgx.ErrNoRows {
+			//		panic(err)
+			//	}
+			//}
 			fullPost.Forum = forum
 		case "thread":
-			thread, err := getThreadById(db, int(post.Thread))
-			if err != nil {
-				if err != pgx.ErrNoRows {
-					panic(err)
-				}
-			}
+			thread, _ := getThreadById(db, int(post.Thread))
+			//if err != nil {
+			//	if err != pgx.ErrNoRows {
+			//		panic(err)
+			//	}
+			//}
 			fullPost.Thread = thread
 		}
 	}
@@ -190,11 +197,13 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 
 	_, err := getPostById(db, int64(ID))
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			models.ErrResponse(res, http.StatusNotFound, "post not found")
-			return
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	models.ErrResponse(res, http.StatusNotFound, "post not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "post not found")
+		return
 	}
 
 	newPost := models.Post{}
@@ -202,16 +211,16 @@ func PostUpdate(res http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	_ = newPost.UnmarshalJSON(body)
 
-	_, err = db.Exec(queryUpdatePost, newPost.Message, ID)
+	_, _ = db.Exec(queryUpdatePost, newPost.Message, ID)
 
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 
-	updatedPost, err := getPostById(db, int64(ID))
-	if err != nil {
-		panic(err)
-	}
+	updatedPost, _ := getPostById(db, int64(ID))
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	models.ResponseObject(res, http.StatusOK, updatedPost)
 	return

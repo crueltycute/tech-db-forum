@@ -3,10 +3,8 @@ package service
 import (
 	db2 "github.com/crueltycute/tech-db-forum/internal/app/db"
 	"github.com/crueltycute/tech-db-forum/internal/models"
-	"github.com/jackc/pgx"
 	"io/ioutil"
 	"net/http"
-	"strings"
 )
 
 func UsersCreate(res http.ResponseWriter, req *http.Request) {
@@ -23,27 +21,39 @@ func UsersCreate(res http.ResponseWriter, req *http.Request) {
 	_, err := db.Exec(queryAddUser, profile.Nickname, profile.Fullname, profile.About, profile.Email)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			rows, err := db.Query(queryGetUserByNickOrEmail, profile.Nickname, profile.Email)
-			defer rows.Close()
+		//if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+		//	rows, err := db.Query(queryGetUserByNickOrEmail, profile.Nickname, profile.Email)
+		//	defer rows.Close()
+		//
+		//	if err != nil {
+		//		panic(err)
+		//	}
+		//
+		//	users := models.Users{}
+		//	for rows.Next() {
+		//		user := &models.User{}
+		//		err := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+		//		if err != nil {
+		//			panic(err)
+		//		}
+		//		users = append(users, user)
+		//	}
+		//	models.ResponseObject(res, http.StatusConflict, users)
+		//	return
+		//}
+		//panic(err)
+		rows, _ := db.Query(queryGetUserByNickOrEmail, profile.Nickname, profile.Email)
+		defer rows.Close()
 
-			if err != nil {
-				panic(err)
-			}
-
-			users := models.Users{}
-			for rows.Next() {
-				user := &models.User{}
-				err := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
-				if err != nil {
-					panic(err)
-				}
-				users = append(users, user)
-			}
-			models.ResponseObject(res, http.StatusConflict, users)
-			return
+		users := models.Users{}
+		for rows.Next() {
+			user := &models.User{}
+			_ := rows.Scan(&user.Nickname, &user.Fullname, &user.About, &user.Email)
+			users = append(users, user)
 		}
-		panic(err)
+
+		models.ResponseObject(res, http.StatusConflict, users)
+		return
 	}
 
 	models.ResponseObject(res, http.StatusCreated, profile)
@@ -57,11 +67,13 @@ func UsersGetOne(res http.ResponseWriter, req *http.Request) {
 	user, err := getUserByNickname(db, nickname)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			models.ErrResponse(res, http.StatusNotFound, "user not found")
-			return
-		}
-		panic(err)
+		//if err == pgx.ErrNoRows {
+		//	models.ErrResponse(res, http.StatusNotFound, "user not found")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusNotFound, "user not found")
+		return
 	}
 
 	models.ResponseObject(res, http.StatusOK, user)
@@ -81,11 +93,13 @@ func UsersUpdate(res http.ResponseWriter, req *http.Request) {
 	//defer rows.Close()
 
 	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			models.ErrResponse(res, http.StatusConflict, "cannot update user")
-			return
-		}
-		panic(err)
+		//if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+		//	models.ErrResponse(res, http.StatusConflict, "cannot update user")
+		//	return
+		//}
+		//panic(err)
+		models.ErrResponse(res, http.StatusConflict, "cannot update user")
+		return
 	}
 
 	count := rows.RowsAffected()
@@ -95,11 +109,11 @@ func UsersUpdate(res http.ResponseWriter, req *http.Request) {
 	}
 
 	updatedData := &models.User{}
-	err = db.QueryRow(queryGetUserByNick, nickname).Scan(&updatedData.Nickname, &updatedData.Fullname, &updatedData.About, &updatedData.Email)
+	_ = db.QueryRow(queryGetUserByNick, nickname).Scan(&updatedData.Nickname, &updatedData.Fullname, &updatedData.About, &updatedData.Email)
 
-	if err != nil {
-		panic(err)
-	}
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	models.ResponseObject(res, http.StatusOK, updatedData)
 	return
