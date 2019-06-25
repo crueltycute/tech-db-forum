@@ -15,12 +15,12 @@ func main() {
 	logrus.Warn("forum-server will start on port ", *port)
 
 	err := db.EnsureDBConnection(pgx.ConnConfig{
-		Host:     "localhost",
-		Port:     5432,
-		Database: "postgres",
-		//Database: "docker",
-		//User:     "docker",
-		//Password: "docker",
+		Host: "localhost",
+		Port: 5432,
+		//Database: "postgres",
+		Database: "docker",
+		User:     "docker",
+		Password: "docker",
 	})
 	if err != nil {
 		logrus.Fatal(err, "cant connect db")

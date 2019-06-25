@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jlexer.Lexer, out *Posts) {
+func easyjsonDc9e8747DecodeGithubComChubasikDbHwInternalModels(in *jlexer.Lexer, out *Posts) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		in.Skip()
@@ -26,7 +26,7 @@ func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 		in.Delim('[')
 		if *out == nil {
 			if !in.IsDelim(']') {
-				*out = make(Posts, 0, 1)
+				*out = make(Posts, 0, 8)
 			} else {
 				*out = Posts{}
 			}
@@ -34,8 +34,16 @@ func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 			*out = (*out)[:0]
 		}
 		for !in.IsDelim(']') {
-			var v1 Post
-			(v1).UnmarshalEasyJSON(in)
+			var v1 *Post
+			if in.IsNull() {
+				in.Skip()
+				v1 = nil
+			} else {
+				if v1 == nil {
+					v1 = new(Post)
+				}
+				(*v1).UnmarshalEasyJSON(in)
+			}
 			*out = append(*out, v1)
 			in.WantComma()
 		}
@@ -45,7 +53,7 @@ func easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(in *jle
 		in.Consumed()
 	}
 }
-func easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jwriter.Writer, in Posts) {
+func easyjsonDc9e8747EncodeGithubComChubasikDbHwInternalModels(out *jwriter.Writer, in Posts) {
 	if in == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
 		out.RawString("null")
 	} else {
@@ -54,7 +62,11 @@ func easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jw
 			if v2 > 0 {
 				out.RawByte(',')
 			}
-			(v3).MarshalEasyJSON(out)
+			if v3 == nil {
+				out.RawString("null")
+			} else {
+				(*v3).MarshalEasyJSON(out)
+			}
 		}
 		out.RawByte(']')
 	}
@@ -63,23 +75,23 @@ func easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(out *jw
 // MarshalJSON supports json.Marshaler interface
 func (v Posts) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(&w, v)
+	easyjsonDc9e8747EncodeGithubComChubasikDbHwInternalModels(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v Posts) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjsonDc9e8747EncodeGithubComCrueltycuteTechDbForumInternalModels(w, v)
+	easyjsonDc9e8747EncodeGithubComChubasikDbHwInternalModels(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *Posts) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(&r, v)
+	easyjsonDc9e8747DecodeGithubComChubasikDbHwInternalModels(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *Posts) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjsonDc9e8747DecodeGithubComCrueltycuteTechDbForumInternalModels(l, v)
+	easyjsonDc9e8747DecodeGithubComChubasikDbHwInternalModels(l, v)
 }

@@ -1,4 +1,4 @@
 package models
 
 //easyjson:json
-type Posts []Post
+type Posts []*Post

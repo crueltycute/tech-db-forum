@@ -1,121 +1,63 @@
-DROP TABLE IF EXISTS Users CASCADE;
-DROP TABLE IF EXISTS Forum CASCADE;
-DROP TABLE IF EXISTS ForumUser CASCADE;
-DROP TABLE IF EXISTS Post CASCADE;
-DROP TABLE IF EXISTS Thread CASCADE;
-DROP TABLE IF EXISTS VoteCount CASCADE;
-DROP TABLE IF EXISTS Vote CASCADE;
+CREATE EXTENSION IF NOT EXISTS citext;
 
-CREATE EXTENSION IF NOT EXISTS CITEXT;
-
-CREATE TABLE IF NOT EXISTS Users
+CREATE TABLE Forumer
 (
-    nickname CITEXT        NOT NULL PRIMARY KEY,
-    fullname TEXT          NOT NULL,
-    email    CITEXT UNIQUE NOT NULL,
-    about    TEXT
+    nickname CITEXT UNIQUE NOT NULL PRIMARY KEY,
+    fullname VARCHAR(255)  NOT NULL,
+    about    TEXT,
+    email    CITEXT UNIQUE NOT NULL
 );
 
-CREATE UNIQUE INDEX email_unique_idx on Users (email);
+CREATE INDEX IF not exists forumer_nickname ON Forumer (nickname);
 
+-- ---------------------------------------------------------------
 
-
-CREATE TABLE IF NOT EXISTS Forum
+CREATE TABLE Forum
 (
-    slug      CITEXT                             NOT NULL PRIMARY KEY,
-    forumUser CITEXT REFERENCES Users (nickname) NOT NULL,
-    title     CITEXT                             NOT NULL,
-    posts     INTEGER DEFAULT 0,
-    threads   INTEGER DEFAULT 0
+    title   CITEXT                               NOT NULL,
+    forumer CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    slug    CITEXT UNIQUE                        NOT NULL PRIMARY KEY,
+    posts   BIGINT DEFAULT 0,
+    threads BIGINT DEFAULT 0
 );
 
-CREATE INDEX forum_slug_hash_idx on Forum USING hash (slug);
+CREATE INDEX IF not exists forum_slug ON Forum (slug);
 
+-- ---------------------------------------------------------------
 
---     nickname CITEXT COLLATE "POSIX" REFERENCES Users (nickname),
-CREATE TABLE ForumUser
+CREATE TABLE ForumForumer
 (
-    slug     CITEXT REFERENCES Forum (slug),
-    nickname CITEXT REFERENCES Users (nickname),
+    slug     CITEXT,
+    nickname CITEXT COLLATE "POSIX",
     CONSTRAINT unique_slug_nickname UNIQUE (slug, nickname)
 );
 
+CREATE INDEX forumforumer_slug_idx on ForumForumer (slug);
+CREATE INDEX forumforumer_nickname_idx on ForumForumer (nickname);
 
+-- ---------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS Thread
+CREATE TABLE Post
 (
-    id      SERIAL                             NOT NULL PRIMARY KEY,
-    author  CITEXT REFERENCES Users (nickname) NOT NULL,
-    forum   CITEXT REFERENCES Forum (slug),
-    votes   INTEGER     DEFAULT 0,
-    slug    CITEXT UNIQUE,
-    title   TEXT                               NOT NULL,
-    message TEXT                               NOT NULL,
-    created TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE OR REPLACE FUNCTION updatethreadcount() RETURNS TRIGGER AS
-$body$
-BEGIN
-    UPDATE Forum
-    SET threads = threads + 1
-    WHERE slug = NEW.forum;
-    RETURN NEW;
-END;
-$body$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_thread_count_trigger
-    AFTER INSERT
-    ON Thread
-    FOR EACH ROW
-EXECUTE PROCEDURE updatethreadcount();
-
-CREATE OR REPLACE FUNCTION insertforumuser() RETURNS TRIGGER AS
-$body$
-BEGIN
-    INSERT INTO ForumUser(slug, nickname)
-    VALUES (NEW.forum, NEW.author)
-    ON CONFLICT DO NOTHING;
-    RETURN NEW;
-END;
-$body$ LANGUAGE plpgsql;
-
-CREATE TRIGGER insert_forum_user_trigger
-    AFTER INSERT
-    ON Thread
-    FOR EACH ROW
-EXECUTE PROCEDURE insertforumuser();
-
-
-
-CREATE TABLE IF NOT EXISTS Post
-(
-    id       SERIAL PRIMARY KEY,
-    parent   INTEGER                  DEFAULT 0,
-    author   CITEXT    NOT NULL,
-    message  TEXT      NOT NULL,
+    id       BIGSERIAL PRIMARY KEY,
+    parent   BIGINT,
+    author   CITEXT,
+    message  TEXT,
     isEdited BOOLEAN,
     forum    CITEXT,
+    thread   BIGINT,
     created  TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    thread   INTEGER,
-
-    path     INTEGER[] NOT NULL
+    path     BIGINT[] NOT NULL
 );
 
-CREATE OR REPLACE FUNCTION setforum() RETURNS TRIGGER AS
-$body$
-BEGIN
-    NEW.forum = (SELECT forum FROM Thread WHERE id = NEW.thread);
-    RETURN NEW;
-END;
-$body$ LANGUAGE plpgsql;
-
-CREATE TRIGGER set_forum_trigger
-    BEFORE INSERT
-    ON Post
-    FOR EACH ROW
-EXECUTE PROCEDURE setforum();
-
+CREATE INDEX IF NOT EXISTS post_path_id ON Post (id, (path[1]));
+CREATE INDEX IF NOT EXISTS post_path ON Post (path);
+CREATE INDEX IF NOT EXISTS post_path_1 ON Post ((path[1]));
+CREATE INDEX IF NOT EXISTS post_thread_id ON Post (thread, id);
+CREATE INDEX IF NOT EXISTS post_thread ON Post (thread);
+CREATE INDEX IF NOT EXISTS post_thread_path_id ON Post (thread, path, id);
+CREATE INDEX IF NOT EXISTS post_thread_id_path_parent ON Post (thread, id, (path[1]), parent);
+CREATE INDEX IF NOT EXISTS post_author_forum ON Post (author, forum);
 
 CREATE OR REPLACE FUNCTION createpath() RETURNS TRIGGER AS
 $postmatpath$
@@ -130,38 +72,6 @@ CREATE TRIGGER create_path_trigger
     ON Post
     FOR EACH ROW
 EXECUTE PROCEDURE createpath();
-
-CREATE OR REPLACE FUNCTION updatepostcount() RETURNS TRIGGER AS
-$body$
-BEGIN
-    UPDATE Forum
-    SET posts = posts + 1
-    WHERE slug = NEW.forum;
-    RETURN NEW;
-END;
-$body$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_post_count_trigger
-    AFTER INSERT
-    ON Post
-    FOR EACH ROW
-EXECUTE PROCEDURE updatepostcount();
-
-CREATE OR REPLACE FUNCTION insertforumuser() RETURNS TRIGGER AS
-$body$
-BEGIN
-    INSERT INTO ForumUser(slug, nickname)
-    VALUES (NEW.forum, NEW.author)
-    ON CONFLICT DO NOTHING;
-    RETURN NEW;
-END;
-$body$ LANGUAGE plpgsql;
-
-CREATE TRIGGER insert_forum_user_trigger
-    AFTER INSERT
-    ON Post
-    FOR EACH ROW
-EXECUTE PROCEDURE insertforumuser();
 
 CREATE OR REPLACE FUNCTION updateeditedcolumn() RETURNS TRIGGER AS
 $body$
@@ -179,52 +89,86 @@ CREATE TRIGGER update_edited_column_trigger
     FOR EACH ROW
 EXECUTE PROCEDURE updateeditedcolumn();
 
+-- ---------------------------------------------------------------
 
-
-CREATE TABLE IF NOT EXISTS Vote
+CREATE TABLE Thread
 (
-    id       SERIAL                             NOT NULL PRIMARY KEY,
-    nickname CITEXT REFERENCES Users (nickname) NOT NULL,
-    threadID INTEGER                            NOT NULL,
-    voice    INT                                NOT NULL,
+    id      BIGSERIAL PRIMARY KEY,
+    title   VARCHAR(255)                         NOT NULL,
+    author  CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    forum   CITEXT REFERENCES Forum (slug),
+    message TEXT                                 NOT NULL,
+    slug    CITEXT UNIQUE                        NULL,
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    votes   BIGINT                   DEFAULT 0
+);
+
+CREATE INDEX IF not exists thread_slug ON Thread (slug);
+CREATE INDEX IF NOT EXISTS thread_forum_created ON Thread (forum, created);
+CREATE INDEX IF not exists thread_author_forum ON Thread (author, forum);
+
+CREATE OR REPLACE FUNCTION updatethreadcount() RETURNS TRIGGER AS
+$body$
+BEGIN
+    UPDATE Forum
+    SET threads = threads + 1
+    WHERE slug = NEW.forum;
+    RETURN NEW;
+END;
+$body$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_thread_count_trigger
+    AFTER INSERT
+    ON Thread
+    FOR EACH ROW
+EXECUTE PROCEDURE updatethreadcount();
+
+CREATE OR REPLACE FUNCTION insertforumforumer() RETURNS TRIGGER AS
+$body$
+BEGIN
+    INSERT INTO ForumForumer(slug, nickname)
+    VALUES (NEW.forum, NEW.author)
+    ON CONFLICT DO NOTHING;
+    RETURN NEW;
+END;
+$body$ LANGUAGE plpgsql;
+
+CREATE TRIGGER insert_forum_forumer_trigger
+    AFTER INSERT
+    ON Thread
+    FOR EACH ROW
+EXECUTE PROCEDURE insertforumforumer();
+
+-- ---------------------------------------------------------------
+
+CREATE TABLE Vote
+(
+    ID       BIGSERIAL PRIMARY KEY,
+    threadID BIGINT                               NOT NULL,
+    nickname CITEXT REFERENCES Forumer (nickname) NOT NULL,
+    voice    SMALLINT                             NOT NULL,
     CONSTRAINT unique_vote UNIQUE (threadID, nickname)
 );
 
-CREATE OR REPLACE FUNCTION addvotecount() RETURNS TRIGGER AS
-$voteinsertcount$
-BEGIN
-    INSERT INTO VoteCount(threadID, count)
-    VALUES (new.threadId, new.voice)
-    ON CONFLICT(threadId) DO UPDATE
-        SET count = VoteCount.count + new.voice;
-    RETURN NEW;
-END;
-$voteinsertcount$ LANGUAGE plpgsql;
-CREATE TRIGGER add_vote_trigger
-    AFTER INSERT
-    ON Vote
-    FOR EACH ROW
-EXECUTE PROCEDURE addvotecount();
+CREATE INDEX IF NOT EXISTS vote_nickname_thread ON Vote (nickname, threadID);
 
 CREATE OR REPLACE FUNCTION updatevotecount() RETURNS TRIGGER AS
 $voteupdatecount$
 BEGIN
-    UPDATE VoteCount
-    SET count = count - old.voice + new.voice
-    WHERE VoteCount.threadId = new.threadId;
+    IF (TG_OP = 'INSERT') THEN
+        UPDATE Thread
+        SET votes = votes + NEW.voice
+        WHERE id = NEW.threadId;
+    ELSE
+        UPDATE Thread
+        SET votes = votes - OLD.voice + NEW.voice
+        WHERE id = NEW.threadId;
+    END IF;
     RETURN NEW;
 END;
 $voteupdatecount$ LANGUAGE plpgsql;
 CREATE TRIGGER update_vote_trigger
-    AFTER UPDATE
+    AFTER UPDATE OR INSERT
     ON Vote
     FOR EACH ROW
 EXECUTE PROCEDURE updatevotecount();
-
-
-
-CREATE TABLE VoteCount
-(
-    threadID BIGINT REFERENCES Thread (ID) UNIQUE NOT NULL,
-    count    BIGINT DEFAULT 0
-);
